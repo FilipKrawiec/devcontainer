@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+usage() {
+  cat <<'EOF'
+Developer workspace CLI
+
+usage:
+  dev <command> [args]
+
+commands:
+  bootstrap              Prepare a new Mac for this workspace.
+  prepare <repo>         Clone a GitLab repo into the shared workspace volume, or reopen it.
+  list                   Show tracked repos in the shared workspace volume.
+  reset <workspace>      Remove one repo from the shared workspace volume.
+  help                   Show this help text.
+
+notes:
+  - use 'prepare' with either a GitLab remote or an existing workspace path like group/project
+  - advanced maintenance commands still exist: open, rebuild
+EOF
+}
+
+[[ $# -ge 1 ]] || {
+  usage >&2
+  exit 1
+}
+
+cmd="$1"
+shift
+
+case "$cmd" in
+  help|-h|--help)
+    usage
+    ;;
+  bootstrap)
+    exec "$BIN_DIR/bootstrap-macos-base" "$@"
+    ;;
+  prepare)
+    [[ $# -eq 1 ]] || {
+      echo "usage: dev prepare <gitlab-remote-or-workspace>" >&2
+      exit 1
+    }
+    if "$BIN_DIR/open-workspace" "$1" >/dev/null 2>&1; then
+      exec "$BIN_DIR/open-workspace" "$1"
+    fi
+    exec "$BIN_DIR/clone-gitlab" "$1"
+    ;;
+  list)
+    [[ $# -eq 0 ]] || {
+      echo "usage: dev list" >&2
+      exit 1
+    }
+    exec "$BIN_DIR/list-workspaces"
+    ;;
+  open)
+    [[ $# -eq 1 ]] || {
+      echo "usage: dev open <workspace-name>" >&2
+      exit 1
+    }
+    exec "$BIN_DIR/open-workspace" "$1"
+    ;;
+  reset)
+    [[ $# -eq 1 ]] || {
+      echo "usage: dev reset <workspace-name>" >&2
+      exit 1
+    }
+    exec "$BIN_DIR/reset-workspace" "$1"
+    ;;
+  rebuild)
+    [[ $# -eq 0 ]] || {
+      echo "usage: dev rebuild" >&2
+      exit 1
+    }
+    exec "$BIN_DIR/rebuild-workspace-image"
+    ;;
+  *)
+    usage >&2
+    exit 1
+    ;;
+esac

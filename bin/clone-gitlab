@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "$0")" && pwd)/_workspace_common.sh"
+
+usage() {
+  cat <<'EOF'
+usage: clone-gitlab <gitlab-ssh-or-https-remote>
+
+examples:
+  clone-gitlab git@gitlab.com:group/project.git
+  clone-gitlab https://gitlab.com/group/project.git
+EOF
+}
+
+[[ $# -eq 1 ]] || {
+  usage >&2
+  exit 1
+}
+
+remote="$1"
+ensure_docker
+ensure_git
+
+workspace_path="$(normalize_gitlab_path "$remote")"
+workspace_id="$(workspace_id_from_path "$workspace_path")"
+checkout_path="$(checkout_path_from_remote "$remote")"
+state_dir="$(workspace_state_dir_from_path "$workspace_path")"
+
+mkdir -p "$state_dir"
+
+if [[ -e "$state_dir/checkout_path.txt" ]]; then
+  die "workspace already exists: $workspace_path"
+fi
+
+if ! docker image inspect "$IMAGE_NAME:latest" >/dev/null 2>&1; then
+  echo "building workspace image $IMAGE_NAME:latest"
+  docker build -t "$IMAGE_NAME:latest" "$WORKSPACE_ROOT/templates/workspace"
+fi
+
+if ! docker volume inspect "$WORKSPACES_VOLUME" >/dev/null 2>&1; then
+  docker volume create \
+    --label "$LABEL_NS.managed=true" \
+    "$WORKSPACES_VOLUME" >/dev/null
+fi
+
+ssh_mount_args
+
+checkout_parent="$(dirname "$checkout_path")"
+clone_container="devws-bootstrap-$workspace_id"
+
+if docker run --rm -v "$WORKSPACES_VOLUME:$WORKSPACES_ROOT" "$IMAGE_NAME:latest" sh -lc "test -d '$checkout_path/.git'"; then
+  die "repository already exists in shared workspace volume: $checkout_path"
+fi
+
+docker run --rm \
+  --name "$clone_container" \
+  -v "$WORKSPACES_VOLUME:$WORKSPACES_ROOT" \
+  "${SSH_MOUNT_ARGS[@]}" \
+  "$IMAGE_NAME:latest" \
+  sh -lc "mkdir -p '$checkout_parent' && git clone '$remote' '$checkout_path'" >/dev/null
+
+git_remote_file="$state_dir/remote.txt"
+printf '%s\n' "$remote" > "$git_remote_file"
+printf '%s\n' "$workspace_id" > "$state_dir/workspace_id.txt"
+printf '%s\n' "$workspace_path" > "$state_dir/workspace_path.txt"
+printf '%s\n' "$checkout_path" > "$state_dir/checkout_path.txt"
+
+print_attach_help "$workspace_id" "$workspace_path" "$checkout_path"

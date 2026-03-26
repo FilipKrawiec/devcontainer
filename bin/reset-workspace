@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "$0")" && pwd)/_workspace_common.sh"
+
+[[ $# -eq 1 ]] || die "usage: reset-workspace <workspace-name-or-path>"
+
+ensure_docker
+
+workspace_ref="$1"
+state_dir="$(workspace_state_dir_from_ref "$workspace_ref")"
+workspace_path="$(cat "$state_dir/workspace_path.txt" 2>/dev/null || printf '%s\n' "$workspace_ref")"
+checkout_path="$(cat "$state_dir/checkout_path.txt" 2>/dev/null || checkout_path_from_path "$workspace_path")"
+checkout_parent="$(dirname "$checkout_path")"
+
+if docker volume inspect "$WORKSPACES_VOLUME" >/dev/null 2>&1; then
+  docker run --rm -v "$WORKSPACES_VOLUME:$WORKSPACES_ROOT" "$IMAGE_NAME:latest" \
+    sh -lc "rm -rf '$checkout_path' && rmdir -p --ignore-fail-on-non-empty '$checkout_parent' 2>/dev/null || true" >/dev/null
+fi
+
+rm -rf "$state_dir"
+echo "reset workspace: $workspace_path"

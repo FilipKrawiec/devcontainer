@@ -1,0 +1,15 @@
+{
+  "name": "Developer Workspace",
+  "image": "devws-polyglot:latest",
+  "remoteUser": "vscode",
+  "workspaceMount": "source=devws_workspaces,target=/workspaces,type=volume",
+  "workspaceFolder": "/workspaces",
+  "mounts": [
+    "source=${localEnv:HOME}/.docker/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+  ],
+  "containerEnv": {
+    "OLLAMA_HOST": "http://host.docker.internal:11434"
+  },
+  "postCreateCommand": "git config --global --add safe.directory '*'"
+}

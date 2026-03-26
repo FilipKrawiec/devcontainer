@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "$0")" && pwd)/_workspace_common.sh"
+
+ensure_docker
+
+printf 'WORKSPACE\tPATH IN CONTAINER\tVOLUME\n'
+find "$STATE_DIR" -type f -name workspace_path.txt -print 2>/dev/null | sort | while read -r file; do
+  dir="$(dirname "$file")"
+  workspace_path="$(cat "$dir/workspace_path.txt")"
+  checkout_path="$(cat "$dir/checkout_path.txt" 2>/dev/null || checkout_path_from_path "$workspace_path")"
+  printf '%s\t%s\t%s\n' "$workspace_path" "$checkout_path" "$WORKSPACES_VOLUME"
+done
+
+echo
+docker volume ls \
+  --filter "label=$LABEL_NS.managed=true" \
+  --format 'table {{.Name}}'

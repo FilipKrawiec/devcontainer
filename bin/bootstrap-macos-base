@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if ! xcode-select -p >/dev/null 2>&1; then
+  echo "installing Xcode Command Line Tools"
+  xcode-select --install || true
+  echo "finish the Xcode Command Line Tools installation if prompted, then rerun this script"
+  exit 1
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+  echo "installing Homebrew"
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+  if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [[ -x /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+  echo "error: Homebrew installation completed but brew is not on PATH" >&2
+  echo "start a new shell or add brew to your shell environment, then rerun this script" >&2
+  exit 1
+fi
+
+"$(cd "$(dirname "$0")" && pwd)/ensure-ssh-key"
+"$(cd "$(dirname "$0")" && pwd)/init-host"

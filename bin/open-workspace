@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+source "$(cd "$(dirname "$0")" && pwd)/_workspace_common.sh"
+
+[[ $# -eq 1 ]] || die "usage: open-workspace <workspace-name-or-path>"
+
+ensure_docker
+
+workspace_ref="$1"
+workspace_id="$(workspace_id_from_ref "$workspace_ref")"
+state_dir="$(workspace_state_dir_from_ref "$workspace_ref")"
+workspace_path="$(cat "$state_dir/workspace_path.txt" 2>/dev/null || printf '%s\n' "$workspace_ref")"
+checkout_path="$(cat "$state_dir/checkout_path.txt" 2>/dev/null || checkout_path_from_ref "$workspace_ref")"
+
+if ! docker volume inspect "$WORKSPACES_VOLUME" >/dev/null 2>&1; then
+  die "shared workspace volume not found: $WORKSPACES_VOLUME"
+fi
+
+print_attach_help "$workspace_id" "$workspace_path" "$checkout_path"
