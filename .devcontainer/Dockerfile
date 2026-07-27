@@ -98,6 +98,14 @@ COPY cli /opt/dev-cli
 RUN cd /opt/dev-cli && /opt/gradle-9.4.0/bin/gradle installDist \
     && ln -sf /opt/dev-cli/build/install/dev-cli/bin/dev-cli /usr/local/bin/dev
 
+# Configure shell autocompletion for dev CLI and set /projects volume permissions
+RUN mkdir -p /projects /home/vscode \
+    && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /etc/bash.bashrc \
+    && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
+    && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /home/vscode/.bashrc \
+    && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /home/vscode/.zshrc \
+    && chown -R vscode:vscode /projects /home/vscode
+
 # Environment variables
 ENV OLLAMA_HOST=http://host.docker.internal:11434
 ENV ANTHROPIC_BASE_URL=http://host.docker.internal:11434/v1

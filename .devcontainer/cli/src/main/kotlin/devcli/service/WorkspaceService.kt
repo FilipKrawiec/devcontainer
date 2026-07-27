@@ -6,6 +6,21 @@ import java.io.File
 class WorkspaceService(
     private val projectsRoot: File = File("/projects")
 ) {
+    private fun ensureProjectsRootWritable() {
+        if (!projectsRoot.exists()) {
+            projectsRoot.mkdirs()
+        }
+        if (projectsRoot.exists() && !projectsRoot.canWrite()) {
+            try {
+                ProcessBuilder("sudo", "chown", "-R", "vscode:vscode", projectsRoot.absolutePath)
+                    .start()
+                    .waitFor()
+            } catch (_: Exception) {
+                // Ignore if sudo is unavailable or fails
+            }
+        }
+    }
+
     fun cloneWorkspace(repoUrl: String): Result<String> {
         return try {
             val ref = WorkspaceRef.fromRemote(repoUrl)
@@ -15,7 +30,15 @@ class WorkspaceService(
                 return Result.failure(IllegalStateException("Repository already exists at ${ref.targetDirectoryPath}"))
             }
 
-            targetDir.parentFile?.mkdirs()
+            ensureProjectsRootWritable()
+
+            val parentDir = targetDir.parentFile
+            if (parentDir != null && !parentDir.exists()) {
+                val created = parentDir.mkdirs()
+                if (!created && !parentDir.exists()) {
+                    return Result.failure(IllegalStateException("Failed to create leading directory ${parentDir.path}. Please check permissions on /projects."))
+                }
+            }
 
             println("Cloning ${ref.remoteUrl} into ${ref.targetDirectoryPath}...")
             val process = ProcessBuilder("git", "clone", ref.remoteUrl, ref.targetDirectoryPath)

@@ -18,5 +18,5 @@
     "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1",
     "OPENAI_API_KEY": "ollama"
   },
-  "postCreateCommand": "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'"
+  "postCreateCommand": "sudo chown -R vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'"
 }
