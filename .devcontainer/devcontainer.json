@@ -18,5 +18,39 @@
     "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1",
     "OPENAI_API_KEY": "ollama"
   },
-  "postCreateCommand": "sudo chown vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'"
+  "postCreateCommand": "sudo chown vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'",
+  "forwardPorts": [
+    3000,
+    5173,
+    8000,
+    8080,
+    8081,
+    9000
+  ],
+  "portsAttributes": {
+    "3000": {
+      "label": "Web App (Node.js / React / Next.js)",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "HTTP Server / Python (Django / FastAPI)",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Web App (HTTP / Vue / Spring Boot)",
+      "onAutoForward": "notify"
+    },
+    "8081": {
+      "label": "Alternate Web / Metro Bundler",
+      "onAutoForward": "notify"
+    },
+    "9000": {
+      "label": "Backend Service",
+      "onAutoForward": "notify"
+    }
+  }
 }

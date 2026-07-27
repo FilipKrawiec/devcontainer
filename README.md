@@ -83,6 +83,25 @@ Inside the container terminal (or via `devcontainer exec --workspace-folder ~/De
 
 ---
 
+## Port Forwarding Configuration
+
+Container ports are automatically forwarded to the host environment as configured in [.devcontainer/devcontainer.json](file:///Users/filip/Developer/.devcontainer/devcontainer.json).
+
+To add or modify forwarded ports, edit the `forwardPorts` list and optional `portsAttributes` labels in `.devcontainer/devcontainer.json`:
+
+```json
+"forwardPorts": [
+  3000,   // Node.js / React / Next.js
+  5173,   // Vite Dev Server
+  8000,   // Python / FastAPI / Django
+  8080,   // Web App / Vue / Spring Boot
+  8081,   // Alternate Web / Metro
+  9000    // Backend Service
+]
+```
+
+---
+
 ## Pre-Installed Toolchain
 
 The Master Dev Container (`devws-polyglot:latest`) comes pre-installed with:
