@@ -98,8 +98,9 @@ COPY cli /opt/dev-cli
 RUN cd /opt/dev-cli && /opt/gradle-9.4.0/bin/gradle installDist \
     && ln -sf /opt/dev-cli/build/install/dev-cli/bin/dev-cli /usr/local/bin/dev
 
-# Configure shell autocompletion for dev CLI and set /projects volume permissions
-RUN mkdir -p /projects /home/vscode \
+# Configure shell autocompletion for dev CLI, pnpm store config, and set /projects volume permissions
+RUN mkdir -p /projects /home/vscode /home/vscode/.local/share/pnpm /home/vscode/.cache \
+    && echo 'store-dir=/home/vscode/.local/share/pnpm/store' > /etc/pnpmrc \
     && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /etc/bash.bashrc \
     && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
     && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /home/vscode/.bashrc \
@@ -113,8 +114,15 @@ ENV ANTHROPIC_API_KEY=ollama
 ENV OPENAI_BASE_URL=http://host.docker.internal:11434/v1
 ENV OPENAI_API_KEY=ollama
 
+ENV PNPM_HOME=/home/vscode/.local/share/pnpm
+ENV NPM_CONFIG_STORE_DIR=/home/vscode/.local/share/pnpm/store
+ENV PNPM_STORE_DIR=/home/vscode/.local/share/pnpm/store
+ENV UV_CACHE_DIR=/home/vscode/.cache/uv
+ENV GOPATH=/home/vscode/go
+ENV GOCACHE=/home/vscode/.cache/go-build
+ENV PUB_CACHE=/home/vscode/.pub-cache
 ENV GRADLE_USER_HOME=/home/vscode/.gradle
 ENV CARGO_HOME=/home/vscode/.cargo
 ENV RUSTUP_HOME=/home/vscode/.rustup
 ENV FLUTTER_HOME=/opt/flutter
-ENV PATH=/opt/graalvm/bin:/root/.local/bin:/home/vscode/.local/bin:/home/vscode/.cargo/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
+ENV PATH=/home/vscode/.local/share/pnpm:/opt/graalvm/bin:/root/.local/bin:/home/vscode/.local/bin:/home/vscode/.cargo/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}

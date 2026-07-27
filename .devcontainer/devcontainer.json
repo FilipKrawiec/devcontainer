@@ -16,9 +16,16 @@
     "ANTHROPIC_BASE_URL": "http://host.docker.internal:11434/v1",
     "ANTHROPIC_API_KEY": "ollama",
     "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1",
-    "OPENAI_API_KEY": "ollama"
+    "OPENAI_API_KEY": "ollama",
+    "PNPM_HOME": "/home/vscode/.local/share/pnpm",
+    "NPM_CONFIG_STORE_DIR": "/home/vscode/.local/share/pnpm/store",
+    "PNPM_STORE_DIR": "/home/vscode/.local/share/pnpm/store",
+    "UV_CACHE_DIR": "/home/vscode/.cache/uv",
+    "GOPATH": "/home/vscode/go",
+    "GOCACHE": "/home/vscode/.cache/go-build",
+    "PUB_CACHE": "/home/vscode/.pub-cache"
   },
-  "postCreateCommand": "sudo chown vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'",
+  "postCreateCommand": "sudo chown vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; rm -rf /projects/.pnpm-store 2>/dev/null || true; git config --global --add safe.directory '*'",
   "appPort": [
     "3000:3000",
     "5173:5173",

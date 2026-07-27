@@ -77,7 +77,7 @@ Inside the container terminal (or via `devcontainer exec --workspace-folder ~/De
 | Mount Target | Source | Type | Description |
 | :--- | :--- | :--- | :--- |
 | `/projects` | `devws_projects` | Docker Volume | High-performance storage for all git repository working trees |
-| `/home/vscode` | `devws_home` | Docker Volume | Persistent storage for user history, package caches (`.cargo`, `.gradle`, `.npm`), and tool settings |
+| `/home/vscode` | `devws_home` | Docker Volume | Persistent storage for user history, package caches (`.cargo`, `.gradle`, `.npm`, `.pnpm-store`, `uv`, `go`), and tool settings |
 | `/home/vscode/.ssh` | `${localEnv:HOME}/.ssh` | Read-only Bind | Subpath overlay providing container access to host SSH keys (`id_ed25519`, `id_rsa`) |
 | `/var/run/docker.sock` | `/var/run/docker.sock` | Bind | Docker socket for running sibling service containers (Postgres, Redis) |
 
