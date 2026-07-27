@@ -14,6 +14,7 @@ Your macOS host computer contains only standard configuration files:
 ~/Developer/
 ├── .devcontainer/
 │   ├── devcontainer.json   # Official Dev Container specification
+│   ├── docker-compose.yml  # Docker Compose service definition & port bindings
 │   ├── Dockerfile          # Polyglot container image definition
 │   └── cli/                # Kotlin Clikt CLI source code (built inside Docker)
 ├── AGENTS.md               # Machine-facing agent contract
@@ -27,7 +28,7 @@ Your macOS host computer contains only standard configuration files:
 
 ### Option A: IDE Native Dev Container (Recommended)
 
-Open `~/Developer` in **Zed**, **Antigravity IDE**, or **VS Code**. The editor automatically detects `.devcontainer/devcontainer.json`, builds the container image, and attaches directly into `/projects`.
+Open `~/Developer` in **Zed**, **Antigravity IDE**, or **VS Code**. The editor automatically detects `.devcontainer/devcontainer.json`, launches via Docker Compose, and attaches directly into `/projects`.
 
 ### Option B: Official Dev Container CLI (`@devcontainers/cli`)
 
@@ -85,19 +86,22 @@ Inside the container terminal (or via `devcontainer exec --workspace-folder ~/De
 
 ## Port Forwarding Configuration
 
-Container ports are automatically forwarded to the host environment as configured in [.devcontainer/devcontainer.json](file:///Users/filip/Developer/.devcontainer/devcontainer.json).
+Container ports are bound and forwarded as configured in [.devcontainer/docker-compose.yml](file:///Users/filip/Developer/.devcontainer/docker-compose.yml) and [.devcontainer/devcontainer.json](file:///Users/filip/Developer/.devcontainer/devcontainer.json).
 
-To add or modify forwarded ports, edit the `forwardPorts` list and optional `portsAttributes` labels in `.devcontainer/devcontainer.json`:
+> [!TIP]
+> **Fast Port Updates Without Rebuilding Image**:
+> When using Docker Compose, port bindings (`ports: - "3000:3000"`) are handled by Docker container creation rather than image compilation. Editing `ports` in `docker-compose.yml` allows Docker Compose to recreate the container in ~1 second reusing the cached image, with **zero image rebuild required**.
 
-```json
-"forwardPorts": [
-  3000,   // Node.js / React / Next.js
-  5173,   // Vite Dev Server
-  8000,   // Python / FastAPI / Django
-  8080,   // Web App / Vue / Spring Boot
-  8081,   // Alternate Web / Metro
-  9000    // Backend Service
-]
+To add or modify forwarded ports, edit `ports` in `docker-compose.yml` and `forwardPorts` in `devcontainer.json`:
+
+```yaml
+ports:
+  - "3000:3000"   # Node.js / React / Next.js
+  - "5173:5173"   # Vite Dev Server
+  - "8000:8000"   # Python / FastAPI / Django
+  - "8080:8080"   # Vue / Spring Boot / HTTP
+  - "8081:8081"   # Alternate Web / Metro
+  - "9000:9000"   # Backend Service
 ```
 
 ---

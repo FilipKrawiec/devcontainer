@@ -1,23 +1,9 @@
 {
   "name": "Master Dev Workspace",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "remoteUser": "vscode",
-  "workspaceMount": "source=devws_projects,target=/projects,type=volume",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devws",
   "workspaceFolder": "/projects",
-  "mounts": [
-    "source=devws_home,target=/home/vscode,type=volume",
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
-    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
-  ],
-  "containerEnv": {
-    "OLLAMA_HOST": "http://host.docker.internal:11434",
-    "ANTHROPIC_BASE_URL": "http://host.docker.internal:11434/v1",
-    "ANTHROPIC_API_KEY": "ollama",
-    "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1",
-    "OPENAI_API_KEY": "ollama"
-  },
+  "remoteUser": "vscode",
   "postCreateCommand": "sudo chown vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'",
   "forwardPorts": [
     3000,
