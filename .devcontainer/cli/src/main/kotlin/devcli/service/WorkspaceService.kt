@@ -17,7 +17,8 @@ class WorkspaceService(
 
             targetDir.parentFile?.mkdirs()
 
-            val process = ProcessBuilder("git", "clone", repoUrl, ref.targetDirectoryPath)
+            println("Cloning ${ref.remoteUrl} into ${ref.targetDirectoryPath}...")
+            val process = ProcessBuilder("git", "clone", ref.remoteUrl, ref.targetDirectoryPath)
                 .inheritIO()
                 .start()
 
