@@ -58,6 +58,13 @@ Inside the container terminal (or via `devcontainer exec --workspace-folder ~/De
   ```sh
   dev list
   ```
+- **Fetch latest git remotes**:
+  ```sh
+  dev fetch              # Fetch all active repositories in /projects
+  dev fetch --prune      # Fetch all and prune deleted branches (-p)
+  dev fetch --tags       # Fetch all tags from remote (-t)
+  dev fetch group/project # Fetch a specific repository
+  ```
 - **Remove a repository**:
   ```sh
   dev reset group/project

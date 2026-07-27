@@ -5,6 +5,7 @@ import com.github.ajalt.clikt.core.PrintHelpMessage
 import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.clikt.core.subcommands
 import devcli.commands.CloneCommand
+import devcli.commands.FetchCommand
 import devcli.commands.ListCommand
 import devcli.commands.ResetCommand
 import devcli.commands.RootCommand
@@ -15,6 +16,7 @@ fun main(args: Array<String>) {
     val rootCommand = RootCommand().subcommands(
         CloneCommand(service),
         ListCommand(service),
+        FetchCommand(service),
         ResetCommand(service)
     )
 
@@ -25,6 +27,9 @@ fun main(args: Array<String>) {
     } catch (e: PrintMessage) {
         println(e.message)
     } catch (e: CliktError) {
-        System.err.println(e.message)
+        if (!e.message.isNullOrBlank()) {
+            System.err.println(e.message)
+        }
+        kotlin.system.exitProcess(e.statusCode)
     }
 }

@@ -3,6 +3,12 @@ package devcli.service
 import devcli.model.WorkspaceRef
 import java.io.File
 
+data class FetchSummary(
+    val relativePath: String,
+    val success: Boolean,
+    val errorMessage: String? = null
+)
+
 class WorkspaceService(
     private val projectsRoot: File = File("/projects")
 ) {
@@ -67,6 +73,75 @@ class WorkspaceService(
             .toList()
     }
 
+    fun findMatchingWorkspaces(target: String): List<String> {
+        val cleanTarget = target.trim().removePrefix("/projects").trim('/')
+        if (cleanTarget.isBlank()) return listWorkspaces()
+
+        val allWorkspaces = listWorkspaces()
+        return allWorkspaces.filter { workspace ->
+            workspace == cleanTarget || workspace.endsWith("/$cleanTarget")
+        }
+    }
+
+    fun fetchWorkspaces(
+        targetRepoPath: String? = null,
+        prune: Boolean = false,
+        tags: Boolean = false
+    ): Result<List<FetchSummary>> {
+        if (!projectsRoot.exists()) {
+            return Result.failure(IllegalStateException("Projects directory ${projectsRoot.path} does not exist"))
+        }
+
+        val workspacesToFetch: List<String> = if (!targetRepoPath.isNullOrBlank()) {
+            val matched = findMatchingWorkspaces(targetRepoPath)
+            if (matched.isEmpty()) {
+                return Result.failure(IllegalArgumentException("Repository '$targetRepoPath' not found in ${projectsRoot.path}"))
+            }
+            matched
+        } else {
+            listWorkspaces()
+        }
+
+        if (workspacesToFetch.isEmpty()) {
+            return Result.success(emptyList())
+        }
+
+        val total = workspacesToFetch.size
+        println("FETCHING GIT REMOTES IN ${projectsRoot.path}:")
+        println("--------------------------------------------------")
+
+        val results = mutableListOf<FetchSummary>()
+        workspacesToFetch.forEachIndexed { index, relPath ->
+            val repoDir = File(projectsRoot, relPath)
+            println("[${index + 1}/$total] Fetching remotes for $relPath...")
+
+            val command = mutableListOf("git", "fetch", "--all")
+            if (prune) command.add("--prune")
+            if (tags) command.add("--tags")
+
+            try {
+                val process = ProcessBuilder(command)
+                    .directory(repoDir)
+                    .inheritIO()
+                    .start()
+
+                val exitCode = process.waitFor()
+                if (exitCode == 0) {
+                    println("Successfully fetched remotes for $relPath\n")
+                    results.add(FetchSummary(relativePath = relPath, success = true))
+                } else {
+                    System.err.println("error: git fetch failed for $relPath with exit code $exitCode\n")
+                    results.add(FetchSummary(relativePath = relPath, success = false, errorMessage = "git fetch failed with exit code $exitCode"))
+                }
+            } catch (e: Exception) {
+                System.err.println("error: failed to execute git fetch for $relPath: ${e.message}\n")
+                results.add(FetchSummary(relativePath = relPath, success = false, errorMessage = e.message))
+            }
+        }
+
+        return Result.success(results)
+    }
+
     fun removeWorkspace(relativeRepoPath: String): Result<String> {
         val targetDir = File(projectsRoot, relativeRepoPath.trim('/'))
         if (!targetDir.exists()) {
@@ -81,3 +156,4 @@ class WorkspaceService(
         }
     }
 }
+
