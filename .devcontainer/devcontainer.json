@@ -3,7 +3,6 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "image": "devws-polyglot:latest",
   "remoteUser": "vscode",
   "workspaceMount": "source=devws_projects,target=/projects,type=volume",
   "workspaceFolder": "/projects",
