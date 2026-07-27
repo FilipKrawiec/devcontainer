@@ -1,3 +1,8 @@
 .DS_Store
-state/
 *.log
+tools/
+.devcontainer/cli/.gradle/
+.devcontainer/cli/build/
+.devcontainer/cli/.kotlin/
+.idea/
+.claude/

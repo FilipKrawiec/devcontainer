@@ -1,8 +1,0 @@
-{
-  "name": "Developer Workspace",
-  "image": "devws-polyglot:latest",
-  "remoteUser": "vscode",
-  "containerEnv": {
-    "OLLAMA_HOST": "http://host.docker.internal:11434"
-  }
-}

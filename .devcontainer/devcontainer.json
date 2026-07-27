@@ -1,15 +1,23 @@
 {
-  "name": "Developer Workspace",
+  "name": "Master Dev Workspace",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "image": "devws-polyglot:latest",
   "remoteUser": "vscode",
-  "workspaceMount": "source=devws_workspaces,target=/workspaces,type=volume",
-  "workspaceFolder": "/workspaces",
+  "workspaceMount": "source=devws_projects,target=/projects,type=volume",
+  "workspaceFolder": "/projects",
   "mounts": [
-    "source=${localEnv:HOME}/.docker/run/docker.sock,target=/var/run/docker.sock,type=bind",
+    "source=devws_home,target=/home/vscode,type=volume",
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
   ],
   "containerEnv": {
-    "OLLAMA_HOST": "http://host.docker.internal:11434"
+    "OLLAMA_HOST": "http://host.docker.internal:11434",
+    "ANTHROPIC_BASE_URL": "http://host.docker.internal:11434/v1",
+    "ANTHROPIC_API_KEY": "ollama",
+    "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1",
+    "OPENAI_API_KEY": "ollama"
   },
-  "postCreateCommand": "git config --global --add safe.directory '*'"
+  "postCreateCommand": "sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; git config --global --add safe.directory '*'"
 }

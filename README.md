@@ -1,66 +1,90 @@
-# Developer Workspace
+# Master Dev Workspace
 
-This repository bootstraps a Docker Desktop-based development setup on macOS.
+This repository defines an isolated, Docker Desktop-based development environment on macOS using the official **Dev Container specification (`@devcontainers/cli`)**.
 
-## Start
+All your repositories and user settings live in high-performance Docker named volumes (`devws_projects` mounted at `/projects` and `devws_home` mounted at `/home/vscode`) inside a unified **Master Dev Container**. Your macOS host remains 100% clean with zero host build tools, zero host language runtimes, and zero custom host scripts.
 
-On a new Mac:
+---
 
-```sh
-git clone <this-repo> ~/Developer
-cd ~/Developer
-./dev bootstrap
-./dev rebuild
+## Minimal Host Structure (`~/Developer`)
+
+Your macOS host computer contains only standard configuration files:
+
+```
+~/Developer/
+├── .devcontainer/
+│   ├── devcontainer.json   # Official Dev Container specification
+│   ├── Dockerfile          # Polyglot container image definition
+│   └── cli/                # Kotlin Clikt CLI source code (built inside Docker)
+├── AGENTS.md               # Machine-facing agent contract
+├── README.md               # Documentation & quick start guide
+└── .gitignore
 ```
 
-This installs the host tools managed by this repo and builds the default workspace image.
+---
 
-To work on this bootstrap repo itself in Zed Dev Containers, open `~/Developer`.
+## Getting Started
 
-## Workspaces
+### Option A: IDE Native Dev Container (Recommended)
 
-Create a volume-backed workspace stub for a GitLab repository:
+Open `~/Developer` in **Zed**, **Antigravity IDE**, or **VS Code**. The editor automatically detects `.devcontainer/devcontainer.json`, builds the container image, and attaches directly into `/projects`.
 
-```sh
-./dev prepare git@gitlab.com:group/project.git
-```
+### Option B: Official Dev Container CLI (`@devcontainers/cli`)
 
-Open an existing workspace again:
+Install the official Dev Container CLI:
 
 ```sh
-./dev prepare group/project
+npm install -g @devcontainers/cli
 ```
 
-List workspaces:
+Build and launch the workspace container:
 
 ```sh
-./dev list
+devcontainer build --workspace-folder ~/Developer
+devcontainer up --workspace-folder ~/Developer
 ```
 
-Reset a workspace:
+---
 
-```sh
-./dev reset group/project
-```
+## Daily In-Container Workflow
 
-## Notes
+Inside the container terminal (or via `devcontainer exec --workspace-folder ~/Developer <cmd>`):
 
-- `./dev bootstrap` installs Xcode Command Line Tools if needed, installs Homebrew if missing, ensures an SSH key exists, then installs Zed and Ollama.
-- After bootstrap, add the printed SSH public key to GitLab before using `./dev prepare` with SSH remotes.
-- To use Codex and Gemini in Zed, add them manually from Zed's ACP Registry UI.
-- This repository includes a shared [`.devcontainer/devcontainer.json`](/Users/filip/Developer/.devcontainer/devcontainer.json) for the bootstrap repo.
-- Workspace stubs live under `projects/<git-host>/<group>/<project>`, but the actual repository stays in a Docker named volume.
-- The repo path inside the dev container is `/workspace/<git-host>/<group>/<project>`.
-- Example: `git@gitlab.com:harborly.org/platform.git` creates [projects/gitlab.com/harborly.org/platform](/Users/filip/Developer/projects/gitlab.com/harborly.org/platform) and opens `/workspace/gitlab.com/harborly.org/platform` from the named volume.
-- GitLab paths are preserved in metadata under `state/group/.../project`, while Docker-safe workspace ids use `--`, for example `group/project` -> `group--project`.
-- In Zed, open the stub folder and let Zed open the dev container from its `.devcontainer/devcontainer.json`.
-- The dev container can reach host Ollama at `http://host.docker.internal:11434`.
-- `./dev open` and `./dev rebuild` still exist for maintenance, but the normal flow is `bootstrap`, `prepare`, `list`, `reset`.
-- Ollama models are not pulled automatically.
-- Suggested starting models:
-  - `ollama pull qwen3-coder:30b`
-  - `ollama pull gemma3:4b`
-- Other common starting points:
-  - `ollama pull deepseek-r1`
-  - `ollama pull llama3.3`
-  - `ollama pull mistral-small`
+- **Clone a repository into `/projects`**:
+  ```sh
+  dev clone git@gitlab.com:group/project.git
+  ```
+- **List active repositories**:
+  ```sh
+  dev list
+  ```
+- **Remove a repository**:
+  ```sh
+  dev reset group/project
+  ```
+
+---
+
+## Container Volumes & Mounting Architecture
+
+| Mount Target | Source | Type | Description |
+| :--- | :--- | :--- | :--- |
+| `/projects` | `devws_projects` | Docker Volume | High-performance storage for all git repository working trees |
+| `/home/vscode` | `devws_home` | Docker Volume | Persistent storage for user history, package caches (`.cargo`, `.gradle`, `.npm`), and tool settings |
+| `/home/vscode/.ssh` | `${localEnv:HOME}/.ssh` | Read-only Bind | Subpath overlay providing container access to host SSH keys (`id_ed25519`, `id_rsa`) |
+| `/var/run/docker.sock` | `/var/run/docker.sock` | Bind | Docker socket for running sibling service containers (Postgres, Redis) |
+
+---
+
+## Pre-Installed Toolchain
+
+The Master Dev Container (`devws-polyglot:latest`) comes pre-installed with:
+
+- **Kotlin Clikt CLI (`dev`)**: Native Kotlin Clikt 4.4.0 CLI compiled from `.devcontainer/cli` into `/usr/local/bin/dev`.
+- **GraalVM JDK 21**: GraalVM Community Edition (`JAVA_HOME=/opt/graalvm`, `native-image` enabled).
+- **Node.js v24.x**: Node.js 24.14.0 + `npm` + `pnpm`.
+- **Python 3.14**: Managed via `uv`.
+- **GitHub CLI (`gh`)**: Official GitHub package.
+- **AI Agent CLIs**: `agy` (Google Antigravity CLI), `codex` CLI, and `claude` (Claude Code CLI).
+- **Go 1.25**, **Rust 1.86**, **Flutter 3.41**, **Gradle 9.4**.
+- **Ollama Host Route**: Bound to `http://host.docker.internal:11434/v1` for local coder model inference.
