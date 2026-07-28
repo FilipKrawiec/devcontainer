@@ -4,32 +4,22 @@ import com.github.ajalt.clikt.core.CliktError
 import com.github.ajalt.clikt.core.PrintHelpMessage
 import com.github.ajalt.clikt.core.PrintMessage
 import com.github.ajalt.clikt.core.subcommands
-import devcli.commands.CloneCommand
-import devcli.commands.FetchCommand
-import devcli.commands.ListCommand
-import devcli.commands.ResetCommand
 import devcli.commands.RootCommand
+import devcli.commands.projects.CloneCommand
+import devcli.commands.projects.FetchCommand
+import devcli.commands.projects.ListCommand
+import devcli.commands.projects.ProjectsCommand
+import devcli.commands.projects.ResetCommand
 import devcli.service.WorkspaceService
 
 fun main(args: Array<String>) {
     val service = WorkspaceService()
-    val rootCommand = RootCommand().subcommands(
+    val projectsCommand = ProjectsCommand().subcommands(
         CloneCommand(service),
         ListCommand(service),
         FetchCommand(service),
         ResetCommand(service)
     )
-
-    try {
-        rootCommand.parse(args)
-    } catch (e: PrintHelpMessage) {
-        println(rootCommand.getFormattedHelp())
-    } catch (e: PrintMessage) {
-        println(e.message)
-    } catch (e: CliktError) {
-        if (!e.message.isNullOrBlank()) {
-            System.err.println(e.message)
-        }
-        kotlin.system.exitProcess(e.statusCode)
-    }
+    val rootCommand = RootCommand().subcommands(projectsCommand)
+    rootCommand.main(args)
 }

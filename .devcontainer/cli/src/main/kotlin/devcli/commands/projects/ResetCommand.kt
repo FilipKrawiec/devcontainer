@@ -1,4 +1,4 @@
-package devcli.commands
+package devcli.commands.projects
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.arguments.argument
@@ -8,9 +8,12 @@ class ResetCommand(
     private val workspaceService: WorkspaceService = WorkspaceService()
 ) : CliktCommand(
     name = "reset",
-    help = "Remove a repository from /projects"
+    help = "Remove a project repository working tree from /projects workspace"
 ) {
-    private val repoPath by argument(help = "Relative path of repository in /projects (e.g. gitlab.com/group/project)")
+    private val repoPath by argument(
+        name = "REPO_PATH",
+        help = "Relative path of repository in /projects (e.g., github.com/user/repo or gitlab.com/group/project)"
+    )
 
     override fun run() {
         echo("Removing repository $repoPath...")

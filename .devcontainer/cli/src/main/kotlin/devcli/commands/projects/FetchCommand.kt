@@ -1,4 +1,4 @@
-package devcli.commands
+package devcli.commands.projects
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.ProgramResult
@@ -12,10 +12,11 @@ class FetchCommand(
     private val workspaceService: WorkspaceService = WorkspaceService()
 ) : CliktCommand(
     name = "fetch",
-    help = "Fetch latest git remotes for active repositories in /projects"
+    help = "Fetch latest Git remotes for active project repositories in /projects"
 ) {
     private val repoPath by argument(
-        help = "Optional repository name or relative path in /projects (e.g. group/project or full path)"
+        name = "REPO_PATH",
+        help = "Optional repository name or relative path in /projects (e.g., group/project or repo name)"
     ).optional()
 
     private val prune by option(

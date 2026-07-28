@@ -52,22 +52,22 @@ Inside the container terminal (or via `devcontainer exec --workspace-folder ~/De
 
 - **Clone a repository into `/projects`**:
   ```sh
-  dev clone git@gitlab.com:group/project.git
+  dev projects clone git@gitlab.com:group/project.git
   ```
 - **List active repositories**:
   ```sh
-  dev list
+  dev projects list
   ```
 - **Fetch latest git remotes**:
   ```sh
-  dev fetch              # Fetch all active repositories in /projects
-  dev fetch --prune      # Fetch all and prune deleted branches (-p)
-  dev fetch --tags       # Fetch all tags from remote (-t)
-  dev fetch group/project # Fetch a specific repository
+  dev projects fetch              # Fetch all active repositories in /projects
+  dev projects fetch --prune      # Fetch all and prune deleted branches (-p)
+  dev projects fetch --tags       # Fetch all tags from remote (-t)
+  dev projects fetch group/project # Fetch a specific repository
   ```
 - **Remove a repository**:
   ```sh
-  dev reset group/project
+  dev projects reset group/project
   ```
 
 ---
