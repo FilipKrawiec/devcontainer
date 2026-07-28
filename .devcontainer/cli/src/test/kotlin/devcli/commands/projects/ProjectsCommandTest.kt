@@ -5,7 +5,6 @@ import devcli.commands.RootCommand
 import devcli.service.WorkspaceService
 import java.io.File
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class ProjectsCommandTest {
@@ -28,7 +27,29 @@ class ProjectsCommandTest {
             )
 
             rootCommand.parse(listOf("projects", "list"))
-            // Command parses without exception
+            assertTrue(true)
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `dev projects get parses cleanly when empty`() {
+        val tempDir = File.createTempFile("devws_cmd_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+
+        try {
+            val service = WorkspaceService(projectsRoot = tempDir)
+
+            val rootCommand = RootCommand().subcommands(
+                ProjectsCommand().subcommands(
+                    GetCommand(service)
+                )
+            )
+
+            rootCommand.parse(listOf("projects", "get"))
             assertTrue(true)
         } finally {
             tempDir.deleteRecursively()
@@ -37,16 +58,18 @@ class ProjectsCommandTest {
 
     @Test
     fun `dev projects help options are registered`() {
-        val rootCommand = RootCommand().subcommands(
-            ProjectsCommand().subcommands(
-                CloneCommand(),
-                ListCommand(),
-                FetchCommand(),
-                ResetCommand()
-            )
+        val projectsCommand = ProjectsCommand().subcommands(
+            GetCommand(),
+            ListCommand(),
+            ResetCommand()
         )
+        val rootCommand = RootCommand().subcommands(projectsCommand)
 
-        val helpText = rootCommand.getFormattedHelp()
-        assertTrue(helpText?.contains("dev") == true)
+        val rootHelpText = rootCommand.getFormattedHelp()
+        assertTrue(rootHelpText?.contains("dev") == true)
+
+        val projectsHelpText = projectsCommand.getFormattedHelp()
+        assertTrue(projectsHelpText?.contains("get") == true)
+        assertTrue(projectsHelpText?.contains("list") == true)
     }
 }

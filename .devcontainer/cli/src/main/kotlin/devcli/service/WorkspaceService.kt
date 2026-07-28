@@ -9,6 +9,22 @@ data class FetchSummary(
     val errorMessage: String? = null
 )
 
+enum class GetAction { CLONED, FETCHED }
+
+data class GetSummary(
+    val relativePath: String,
+    val action: GetAction,
+    val success: Boolean,
+    val errorMessage: String? = null
+)
+
+data class WorkspaceDetail(
+    val relativePath: String,
+    val headRef: String,
+    val staleness: String,
+    val isDirty: Boolean = false
+)
+
 class WorkspaceService(
     private val projectsRoot: File = File("/projects")
 ) {
@@ -142,6 +158,160 @@ class WorkspaceService(
         return Result.success(results)
     }
 
+    fun getWorkspace(repoRef: String? = null): Result<List<GetSummary>> {
+        if (!projectsRoot.exists()) {
+            return Result.failure(IllegalStateException("Projects directory ${projectsRoot.path} does not exist"))
+        }
+
+        if (repoRef.isNullOrBlank()) {
+            val workspaces = listWorkspaces()
+            if (workspaces.isEmpty()) {
+                return Result.success(emptyList())
+            }
+            return fetchWorkspaces().map { fetchSummaries ->
+                fetchSummaries.map { fs ->
+                    GetSummary(
+                        relativePath = fs.relativePath,
+                        action = GetAction.FETCHED,
+                        success = fs.success,
+                        errorMessage = fs.errorMessage
+                    )
+                }
+            }
+        }
+
+        val matches = findMatchingWorkspaces(repoRef)
+        if (matches.isNotEmpty()) {
+            val results = mutableListOf<GetSummary>()
+            for (relPath in matches) {
+                val fetchRes = fetchWorkspaces(relPath)
+                fetchRes.onSuccess { summaries ->
+                    summaries.forEach { s ->
+                        results.add(GetSummary(relativePath = s.relativePath, action = GetAction.FETCHED, success = s.success, errorMessage = s.errorMessage))
+                    }
+                }.onFailure { err ->
+                    results.add(GetSummary(relativePath = relPath, action = GetAction.FETCHED, success = false, errorMessage = err.message))
+                }
+            }
+            return Result.success(results)
+        }
+
+        val ref = try {
+            WorkspaceRef.fromRemote(repoRef)
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+
+        val targetDir = File(ref.targetDirectoryPath)
+        if (targetDir.exists() && File(targetDir, ".git").exists()) {
+            val fetchRes = fetchWorkspaces(ref.relativePath)
+            return fetchRes.map { summaries ->
+                summaries.map { s ->
+                    GetSummary(relativePath = s.relativePath, action = GetAction.FETCHED, success = s.success, errorMessage = s.errorMessage)
+                }
+            }
+        }
+
+        val cloneRes = cloneWorkspace(repoRef)
+        return if (cloneRes.isSuccess) {
+            Result.success(
+                listOf(
+                    GetSummary(
+                        relativePath = ref.relativePath,
+                        action = GetAction.CLONED,
+                        success = true
+                    )
+                )
+            )
+        } else {
+            Result.failure(cloneRes.exceptionOrNull() ?: RuntimeException("git clone failed for $repoRef"))
+        }
+    }
+
+    fun getWorkspaceDetail(relPath: String): WorkspaceDetail {
+        val repoDir = File(projectsRoot, relPath)
+        if (!repoDir.exists() || !File(repoDir, ".git").exists()) {
+            return WorkspaceDetail(relativePath = relPath, headRef = "invalid", staleness = "No git repo")
+        }
+
+        return try {
+            val process = ProcessBuilder("git", "status", "--porcelain=v2", "--branch")
+                .directory(repoDir)
+                .start()
+
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+
+            var branchHead = ""
+            var branchOid = ""
+            var branchUpstream = ""
+            var ahead = 0
+            var behind = 0
+            var hasUpstream = false
+            var isDirty = false
+
+            output.lineSequence().forEach { line ->
+                when {
+                    line.startsWith("# branch.head ") -> {
+                        branchHead = line.removePrefix("# branch.head ").trim()
+                    }
+                    line.startsWith("# branch.oid ") -> {
+                        branchOid = line.removePrefix("# branch.oid ").trim()
+                    }
+                    line.startsWith("# branch.upstream ") -> {
+                        branchUpstream = line.removePrefix("# branch.upstream ").trim()
+                        if (branchUpstream.isNotBlank() && branchUpstream != "(detached)") {
+                            hasUpstream = true
+                        }
+                    }
+                    line.startsWith("# branch.ab ") -> {
+                        val abStr = line.removePrefix("# branch.ab ").trim()
+                        val parts = abStr.split(" ")
+                        if (parts.size >= 2) {
+                            ahead = parts[0].removePrefix("+").toIntOrNull() ?: 0
+                            behind = parts[1].removePrefix("-").toIntOrNull() ?: 0
+                        }
+                    }
+                    line.isNotBlank() && !line.startsWith("#") -> {
+                        isDirty = true
+                    }
+                }
+            }
+
+            val headStr = if (branchHead.isNotBlank() && branchHead != "(detached)") {
+                branchHead
+            } else if (branchOid.isNotBlank() && branchOid != "(initial)") {
+                branchOid.take(7)
+            } else {
+                "HEAD"
+            }
+
+            val formattedHead = if (isDirty) "$headStr*" else headStr
+
+            val stalenessStr = when {
+                !hasUpstream -> "No upstream"
+                ahead == 0 && behind == 0 -> "Up to date"
+                ahead > 0 && behind == 0 -> "Ahead $ahead"
+                ahead == 0 && behind > 0 -> "Behind $behind"
+                else -> "Diverged (+$ahead/-$behind)"
+            }
+
+            WorkspaceDetail(
+                relativePath = relPath,
+                headRef = formattedHead,
+                staleness = stalenessStr,
+                isDirty = isDirty
+            )
+        } catch (e: Exception) {
+            WorkspaceDetail(relativePath = relPath, headRef = "error", staleness = e.message ?: "error")
+        }
+    }
+
+    fun listWorkspaceDetails(): List<WorkspaceDetail> {
+        val workspaces = listWorkspaces()
+        return workspaces.map { getWorkspaceDetail(it) }
+    }
+
     fun removeWorkspace(relativeRepoPath: String): Result<String> {
         val targetDir = File(projectsRoot, relativeRepoPath.trim('/'))
         if (!targetDir.exists()) {
@@ -156,4 +326,3 @@ class WorkspaceService(
         }
     }
 }
-

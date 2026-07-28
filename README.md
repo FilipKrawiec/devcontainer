@@ -50,22 +50,18 @@ devcontainer up --workspace-folder ~/Developer
 
 Inside the container terminal (or via `devcontainer exec --workspace-folder ~/Developer <cmd>`):
 
-- **Clone a repository into `/projects`**:
+- **Get a project (clone if new, or fetch latest Git state if cloned)**:
   ```sh
-  dev projects clone git@gitlab.com:group/project.git
+  dev projects get                          # Fetch latest Git state for all active repositories in /projects
+  dev projects get group/project           # Fetch latest Git state for a specific project
+  dev projects get git@gitlab.com:group/project.git # Clone a new project into /projects
   ```
-- **List active repositories**:
+- **List active project repositories with HEAD and Git staleness**:
   ```sh
   dev projects list
   ```
-- **Fetch latest git remotes**:
-  ```sh
-  dev projects fetch              # Fetch all active repositories in /projects
-  dev projects fetch --prune      # Fetch all and prune deleted branches (-p)
-  dev projects fetch --tags       # Fetch all tags from remote (-t)
-  dev projects fetch group/project # Fetch a specific repository
-  ```
-- **Remove a repository**:
+  *Outputs an aligned table showing `PROJECT`, `HEAD` (branch/commit), and `STALENESS` (sync status vs upstream).*
+- **Remove a project repository working tree**:
   ```sh
   dev projects reset group/project
   ```

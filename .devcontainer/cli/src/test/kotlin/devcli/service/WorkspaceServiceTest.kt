@@ -15,8 +15,8 @@ class WorkspaceServiceTest {
         }
 
         try {
-            val repo1 = File(tempDir, "github.com/user/repo1/.git").apply { parentFile.mkdirs(); mkdirs() }
-            val repo2 = File(tempDir, "gitlab.com/group/repo2/.git").apply { parentFile.mkdirs(); mkdirs() }
+            File(tempDir, "github.com/user/repo1/.git").apply { parentFile.mkdirs(); mkdirs() }
+            File(tempDir, "gitlab.com/group/repo2/.git").apply { parentFile.mkdirs(); mkdirs() }
 
             val service = WorkspaceService(projectsRoot = tempDir)
 
@@ -80,6 +80,43 @@ class WorkspaceServiceTest {
             val result = service.fetchWorkspaces()
             assertTrue(result.isSuccess)
             assertEquals(emptyList(), result.getOrNull())
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `getWorkspace returns empty success when no repos exist and no repoRef given`() {
+        val tempDir = File.createTempFile("devws_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+
+        try {
+            val service = WorkspaceService(projectsRoot = tempDir)
+            val result = service.getWorkspace(null)
+            assertTrue(result.isSuccess)
+            assertEquals(emptyList(), result.getOrNull())
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `listWorkspaceDetails handles existing workspace details cleanly`() {
+        val tempDir = File.createTempFile("devws_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+
+        try {
+            File(tempDir, "github.com/user/repo1/.git").apply { parentFile.mkdirs(); mkdirs() }
+
+            val service = WorkspaceService(projectsRoot = tempDir)
+            val details = service.listWorkspaceDetails()
+
+            assertEquals(1, details.size)
+            assertEquals("github.com/user/repo1", details[0].relativePath)
         } finally {
             tempDir.deleteRecursively()
         }
