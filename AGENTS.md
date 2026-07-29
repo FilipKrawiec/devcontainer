@@ -27,7 +27,7 @@ Project source code lives exclusively inside the persistent Docker named volume 
 ## Toolchain & Pre-Installed Runtimes
 
 - Pinned polyglot image defined in [.devcontainer/Dockerfile](/Users/filip/Developer/.devcontainer/Dockerfile).
-- Pre-installed tools: Kotlin Clikt CLI (`dev`), GraalVM JDK 21, Node.js 24, Python 3.14 (uv), Go 1.25, Rust 1.86, Flutter 3.41, GitHub CLI (`gh`), `agy`, `codex`, and `claude`.
+- Pre-installed tools: Kotlin Clikt CLI (`dev`), GraalVM JDK 21, Node.js 24, Python 3.14 (uv), Go 1.25, Rust 1.86, Flutter 3.41, GitHub CLI (`gh`), `ollama` CLI, `agy`, `codex`, and `claude`.
 
 ## Human Files
 

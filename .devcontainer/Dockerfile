@@ -51,6 +51,7 @@ RUN apt-get update \
         zsh \
         zsh-autosuggestions \
         zsh-syntax-highlighting \
+        zstd \
     # Install GitHub CLI (gh)
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -85,6 +86,8 @@ RUN apt-get update \
     && curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin \
     && (cp /root/.local/bin/agy /usr/local/bin/agy 2>/dev/null || true) \
     && chmod +x /usr/local/bin/claude /usr/local/bin/agy 2>/dev/null || true \
+    # Install official Ollama Linux CLI (enables 'ollama launch claude', etc.)
+    && curl -fsSL https://ollama.com/install.sh | sh \
     # Install Go
     && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tgz \
     && rm -rf /usr/local/go \

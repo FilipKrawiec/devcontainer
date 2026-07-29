@@ -110,6 +110,6 @@ The Master Dev Container (`devws-polyglot:latest`) comes pre-installed with:
 - **Node.js v24.x**: Node.js 24.14.0 + `npm` + `pnpm`.
 - **Python 3.14**: Managed via `uv`.
 - **GitHub CLI (`gh`)**: Official GitHub package.
-- **AI Agent CLIs**: `agy` (Google Antigravity CLI), `codex` CLI, and `claude` (Claude Code CLI).
+- **AI Agent CLIs**: `ollama` CLI (supporting `ollama launch claude`, `ollama launch codex`, etc.), `agy` (Google Antigravity CLI), `codex` CLI, and `claude` (Claude Code CLI).
 - **Go 1.25**, **Rust 1.86**, **Flutter 3.41**, **Gradle 9.4**.
-- **Ollama Host Route**: Bound to `http://host.docker.internal:11434/v1` for local coder model inference.
+- **Ollama Host Route**: Bound to `http://host.docker.internal:11434` (`OLLAMA_HOST`) for local model inference via `ollama launch claude`.
