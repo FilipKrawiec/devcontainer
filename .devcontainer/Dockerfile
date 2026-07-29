@@ -9,6 +9,23 @@ ARG RUST_VERSION=1.86.0
 ARG FLUTTER_VERSION=3.41.2
 ARG GRAALVM_VERSION=21.0.2
 
+# Early Environment setup to ensure PATH contains local bin directories during build
+ENV JAVA_HOME=/opt/graalvm
+ENV GRAALVM_HOME=/opt/graalvm
+ENV PNPM_HOME=/home/vscode/.local/share/pnpm
+ENV NPM_CONFIG_STORE_DIR=/home/vscode/.local/share/pnpm/store
+ENV PNPM_STORE_DIR=/home/vscode/.local/share/pnpm/store
+ENV UV_CACHE_DIR=/home/vscode/.cache/uv
+ENV GOPATH=/home/vscode/go
+ENV GOCACHE=/home/vscode/.cache/go-build
+ENV PUB_CACHE=/home/vscode/.pub-cache
+ENV GRADLE_USER_HOME=/home/vscode/.gradle
+ENV CARGO_HOME=/home/vscode/.cargo
+ENV RUSTUP_HOME=/home/vscode/.rustup
+ENV FLUTTER_HOME=/opt/flutter
+ENV FLUTTER_SUPPRESS_ANALYTICS=true
+ENV PATH=/home/vscode/.local/share/pnpm:/opt/graalvm/bin:/root/.local/bin:/home/vscode/.local/bin:/home/vscode/.cargo/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
+
 RUN apt-get update \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
@@ -31,6 +48,9 @@ RUN apt-get update \
         unzip \
         xz-utils \
         zip \
+        zsh \
+        zsh-autosuggestions \
+        zsh-syntax-highlighting \
     # Install GitHub CLI (gh)
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -56,8 +76,15 @@ RUN apt-get update \
     && uv python install "${PYTHON_VERSION}" \
     && ln -sf "/root/.local/share/uv/python/cpython-${PYTHON_VERSION}-linux-${UV_ARCH}-gnu/bin/python3" /usr/local/bin/python3 \
     && ln -sf /usr/local/bin/python3 /usr/local/bin/python \
-    # Install pnpm, agy CLI, codex CLI, and claude-code CLI
-    && npm install -g pnpm @anthropic-ai/claude-code @google/antigravity-cli codex-cli || true \
+    # Install pnpm and OpenAI Codex CLI
+    && npm install -g pnpm @openai/codex \
+    # Install Claude Code CLI via official install script using bash
+    && curl -fsSL https://claude.ai/install.sh | bash \
+    && (cp /root/.local/bin/claude /usr/local/bin/claude 2>/dev/null || true) \
+    # Install Google Antigravity CLI (agy) into /usr/local/bin
+    && curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin \
+    && (cp /root/.local/bin/agy /usr/local/bin/agy 2>/dev/null || true) \
+    && chmod +x /usr/local/bin/claude /usr/local/bin/agy 2>/dev/null || true \
     # Install Go
     && curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tgz \
     && rm -rf /usr/local/go \
@@ -72,8 +99,8 @@ RUN apt-get update \
 # Pre-populate SSH known hosts for GitLab, GitHub, Bitbucket
 RUN mkdir -p /etc/ssh && ssh-keyscan gitlab.com github.com bitbucket.org >> /etc/ssh/ssh_known_hosts 2>/dev/null || true
 
-# Ensure non-root docker socket access for vscode user
-RUN groupadd -f docker && usermod -aG docker vscode
+# Ensure non-root docker socket access and zsh default shell for vscode user
+RUN groupadd -f docker && usermod -aG docker vscode && chsh -s /bin/zsh vscode
 
 RUN rm -rf /root/.cargo /root/.rustup \
     && case "${TARGETARCH}" in \
@@ -81,9 +108,8 @@ RUN rm -rf /root/.cargo /root/.rustup \
          arm64) RUST_TRIPLE="aarch64-unknown-linux-gnu" ;; \
          *) echo "unsupported TARGETARCH: arm64" >&2; exit 1 ;; \
        esac \
-    && curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal \
-    && /root/.cargo/bin/rustup toolchain install "${RUST_VERSION}-${RUST_TRIPLE}" --profile minimal \
-    && /root/.cargo/bin/rustup default "${RUST_VERSION}-${RUST_TRIPLE}"
+    && curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain "${RUST_VERSION}-${RUST_TRIPLE}" --no-modify-path \
+    && rm -f /root/.zshenv 2>/dev/null || true
 
 RUN git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter/flutter.git /opt/flutter \
     && /opt/flutter/bin/flutter config --no-analytics \
@@ -92,37 +118,17 @@ RUN git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter
     && rm -rf /var/lib/apt/lists/*
 
 # Copy Kotlin Clikt dev-cli source from .devcontainer/cli and compile into /usr/local/bin/dev
-ENV JAVA_HOME=/opt/graalvm
-ENV GRAALVM_HOME=/opt/graalvm
 COPY cli /opt/dev-cli
-RUN cd /opt/dev-cli && /opt/gradle-9.4.0/bin/gradle installDist \
+RUN cd /opt/dev-cli && /opt/gradle-${GRADLE_VERSION}/bin/gradle installDist \
     && ln -sf /opt/dev-cli/build/install/dev-cli/bin/dev-cli /usr/local/bin/dev
 
-# Configure shell autocompletion for dev CLI, pnpm store config, and set /projects volume permissions
+# Configure image-native Zsh prompt (One Dark colors), autocompletion, and pnpm store config
 RUN mkdir -p /projects /home/vscode /home/vscode/.local/share/pnpm /home/vscode/.cache \
     && echo 'store-dir=/home/vscode/.local/share/pnpm/store' > /etc/pnpmrc \
     && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /etc/bash.bashrc \
     && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
-    && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /home/vscode/.bashrc \
-    && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /home/vscode/.zshrc \
+    && echo 'autoload -U colors && colors 2>/dev/null || true' >> /etc/zsh/zshrc \
+    && echo 'PROMPT="%F{blue}%~%f %F{green}\$(git branch --show-current 2>/dev/null)%f %F{magenta}❯%f "' >> /etc/zsh/zshrc \
+    && echo 'source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh 2>/dev/null || true' >> /etc/zsh/zshrc \
+    && echo 'source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null || true' >> /etc/zsh/zshrc \
     && chown -R vscode:vscode /projects /home/vscode
-
-# Environment variables
-ENV OLLAMA_HOST=http://host.docker.internal:11434
-ENV ANTHROPIC_BASE_URL=http://host.docker.internal:11434/v1
-ENV ANTHROPIC_API_KEY=ollama
-ENV OPENAI_BASE_URL=http://host.docker.internal:11434/v1
-ENV OPENAI_API_KEY=ollama
-
-ENV PNPM_HOME=/home/vscode/.local/share/pnpm
-ENV NPM_CONFIG_STORE_DIR=/home/vscode/.local/share/pnpm/store
-ENV PNPM_STORE_DIR=/home/vscode/.local/share/pnpm/store
-ENV UV_CACHE_DIR=/home/vscode/.cache/uv
-ENV GOPATH=/home/vscode/go
-ENV GOCACHE=/home/vscode/.cache/go-build
-ENV PUB_CACHE=/home/vscode/.pub-cache
-ENV GRADLE_USER_HOME=/home/vscode/.gradle
-ENV CARGO_HOME=/home/vscode/.cargo
-ENV RUSTUP_HOME=/home/vscode/.rustup
-ENV FLUTTER_HOME=/opt/flutter
-ENV PATH=/home/vscode/.local/share/pnpm:/opt/graalvm/bin:/root/.local/bin:/home/vscode/.local/bin:/home/vscode/.cargo/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}

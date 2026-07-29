@@ -13,10 +13,6 @@
   ],
   "containerEnv": {
     "OLLAMA_HOST": "http://host.docker.internal:11434",
-    "ANTHROPIC_BASE_URL": "http://host.docker.internal:11434/v1",
-    "ANTHROPIC_API_KEY": "ollama",
-    "OPENAI_BASE_URL": "http://host.docker.internal:11434/v1",
-    "OPENAI_API_KEY": "ollama",
     "PNPM_HOME": "/home/vscode/.local/share/pnpm",
     "NPM_CONFIG_STORE_DIR": "/home/vscode/.local/share/pnpm/store",
     "PNPM_STORE_DIR": "/home/vscode/.local/share/pnpm/store",
