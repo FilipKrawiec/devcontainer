@@ -3,13 +3,20 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1.10.0": {
+      "moby": false,
+      "version": "29.7.1",
+      "mobyBuildxVersion": "0.36.0",
+      "dockerDashComposeVersion": "5.3.1"
+    }
+  },
   "remoteUser": "vscode",
   "workspaceMount": "source=devws_projects,target=/projects,type=volume",
   "workspaceFolder": "/projects",
   "mounts": [
     "source=devws_home,target=/home/vscode,type=volume",
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
-    "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,readonly"
+    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind"
   ],
   "containerEnv": {
     "OLLAMA_HOST": "http://host.docker.internal:11434",
@@ -21,15 +28,6 @@
     "GOCACHE": "/home/vscode/.cache/go-build",
     "PUB_CACHE": "/home/vscode/.pub-cache"
   },
-  "postCreateCommand": "sudo chown vscode:vscode /projects /home/vscode 2>/dev/null || true; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; rm -rf /projects/.pnpm-store 2>/dev/null || true; git config --global --add safe.directory '*'",
-  "appPort": [
-    "3000:3000",
-    "5173:5173",
-    "8000:8000",
-    "8080:8080",
-    "8081:8081",
-    "9000:9000"
-  ],
   "forwardPorts": [
     3000,
     5173,

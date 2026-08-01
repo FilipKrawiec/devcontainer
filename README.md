@@ -1,115 +1,64 @@
 # Master Dev Workspace
 
-This repository defines an isolated, Docker Desktop-based development environment on macOS using the official **Dev Container specification (`@devcontainers/cli`)**.
+This repository defines a macOS Dev Container workspace using the [Development Container specification](https://containers.dev/). Active repositories live in Docker volumes, while the host checkout remains control-plane configuration only.
 
-All your repositories and user settings live in high-performance Docker named volumes (`devws_projects` mounted at `/projects` and `devws_home` mounted at `/home/vscode`) inside a unified **Master Dev Container**. Your macOS host remains 100% clean with zero host build tools, zero host language runtimes, and zero custom host scripts.
+The default configuration is designed for interactive development, AI agents, Docker image builds, and local sibling services. It does not mount host SSH private keys.
 
----
+## Getting started
 
-## Minimal Host Structure (`~/Developer`)
+### IDE workflow (recommended)
 
-Your macOS host computer contains only standard configuration files:
+Open `~/Developer` in VS Code, Zed, or Antigravity IDE and select the normal Dev Container flow. The default configuration is [.devcontainer/devcontainer.json](.devcontainer/devcontainer.json) and opens `/projects`.
 
-```
-~/Developer/
-├── .devcontainer/
-│   ├── devcontainer.json   # Official Dev Container specification
-│   ├── Dockerfile          # Polyglot container image definition
-│   └── cli/                # Kotlin Clikt CLI source code (built inside Docker)
-├── AGENTS.md               # Machine-facing agent contract
-├── README.md               # Documentation & quick start guide
-└── .gitignore
-```
+For Codex or another agent CLI, open an in-container terminal as `vscode`, authenticate the CLI there, then work under `/projects`. Agent configuration persists in `devws_home`; image-provided executables are outside that volume and therefore remain available after rebuilds.
 
----
+### CLI workflow
 
-## Getting Started
-
-### Option A: IDE Native Dev Container (Recommended)
-
-Open `~/Developer` in **Zed**, **Antigravity IDE**, or **VS Code**. The editor automatically detects `.devcontainer/devcontainer.json`, builds the container image, and attaches directly into `/projects`.
-
-### Option B: Official Dev Container CLI (`@devcontainers/cli`)
-
-Install the official Dev Container CLI:
+The official Dev Container CLI requires Node.js on the host. Use this only if that prerequisite is acceptable:
 
 ```sh
 npm install -g @devcontainers/cli
-```
-
-Build and launch the workspace container:
-
-```sh
 devcontainer build --workspace-folder ~/Developer
 devcontainer up --workspace-folder ~/Developer
 ```
 
----
+After configuration changes, use your IDE's **Rebuild Container** action or rebuild with the CLI. Rebuilding preserves `devws_projects` and `devws_home`; do not remove either volume unless you have a backup.
 
-## Daily In-Container Workflow
+The configuration uses the official Docker-outside-of-Docker feature. Its Docker CLI connects to Docker Desktop through the mounted host socket, so `docker build` and `docker compose` work inside the Dev Container without running a second daemon. Ollama remains independently available at `http://host.docker.internal:11434`.
 
-Inside the container terminal (or via `devcontainer exec --workspace-folder ~/Developer <cmd>`):
+Use your local SSH agent or an HTTPS credential helper for Git authentication. Do not bind-mount `~/.ssh` into this shared workspace.
 
-- **Get a project (clone if new, or fetch latest Git state if cloned)**:
-  ```sh
-  dev projects get                          # Fetch latest Git state for all active repositories in /projects
-  dev projects get group/project           # Fetch latest Git state for a specific project
-  dev projects get git@gitlab.com:group/project.git # Clone a new project into /projects
-  ```
-- **List active project repositories with HEAD and Git staleness**:
-  ```sh
-  dev projects list
-  ```
-  *Outputs an aligned table showing `PROJECT`, `HEAD` (branch/commit), and `STALENESS` (sync status vs upstream).*
-- **Remove a project repository working tree**:
-  ```sh
-  dev projects reset group/project
-  ```
+## Daily in-container workflow
 
----
+```sh
+# Clone a repository, or fetch it when it already exists.
+dev projects get group/project
+dev projects get git@gitlab.com:group/project.git
 
-## Container Volumes & Mounting Architecture
+# List repositories with branch and upstream staleness.
+dev projects list
 
-| Mount Target | Source | Type | Description |
-| :--- | :--- | :--- | :--- |
-| `/projects` | `devws_projects` | Docker Volume | High-performance storage for all git repository working trees |
-| `/home/vscode` | `devws_home` | Docker Volume | Persistent storage for user history, package caches (`.cargo`, `.gradle`, `.npm`, `.pnpm-store`, `uv`, `go`), and tool settings |
-| `/home/vscode/.ssh` | `${localEnv:HOME}/.ssh` | Read-only Bind | Subpath overlay providing container access to host SSH keys (`id_ed25519`, `id_rsa`) |
-| `/var/run/docker.sock` | `/var/run/docker.sock` | Bind | Docker socket for running sibling service containers (Postgres, Redis) |
+# Verify the runtime, including Docker access.
+dev doctor
 
----
-
-## Port Forwarding Configuration
-
-Container ports are bound and forwarded as configured in [.devcontainer/devcontainer.json](file:///Users/filip/Developer/.devcontainer/devcontainer.json).
-
-To add or modify forwarded ports, edit `appPort` and `forwardPorts` in `.devcontainer/devcontainer.json`:
-
-```json
-"appPort": [
-  "3000:3000",   // Node.js / React / Next.js
-  "5173:5173",   // Vite Dev Server
-  "8000:8000",   // Python / FastAPI / Django
-  "8080:8080",   // Vue / Spring Boot / HTTP
-  "8081:8081",   // Alternate Web / Metro
-  "9000:9000"    // Backend Service
-],
-"forwardPorts": [
-  3000, 5173, 8000, 8080, 8081, 9000
-]
+# Permanently remove one verified Git worktree.
+dev projects reset github.com/user/project --yes
 ```
 
----
+`reset` accepts only a relative path beneath `/projects`, refuses non-Git directories, and requires `--yes`.
 
-## Pre-Installed Toolchain
+## Storage and ports
 
-The Master Dev Container (`devws-polyglot:latest`) comes pre-installed with:
+| Mount target | Source | Purpose |
+| --- | --- | --- |
+| `/projects` | `devws_projects` | Active Git working trees under `/projects/<git-host>/<group>/<project>` |
+| `/home/vscode` | `devws_home` | Agent authentication, shell state, and package caches |
+| `/var/run/docker.sock` | Docker Desktop host socket | Docker image builds and local sibling services |
 
-- **Kotlin Clikt CLI (`dev`)**: Native Kotlin Clikt 4.4.0 CLI compiled from `.devcontainer/cli` into `/usr/local/bin/dev`.
-- **GraalVM JDK 21**: GraalVM Community Edition (`JAVA_HOME=/opt/graalvm`, `native-image` enabled).
-- **Node.js v24.x**: Node.js 24.14.0 + `npm` + `pnpm`.
-- **Python 3.14**: Managed via `uv`.
-- **GitHub CLI (`gh`)**: Official GitHub package.
-- **AI Agent CLIs**: `ollama` CLI (supporting `ollama launch claude`, `ollama launch codex`, etc.), `agy` (Google Antigravity CLI), `codex` CLI, and `claude` (Claude Code CLI).
-- **Go 1.25**, **Rust 1.86**, **Flutter 3.41**, **Gradle 9.4**.
-- **Ollama Host Route**: Bound to `http://host.docker.internal:11434` (`OLLAMA_HOST`) for local model inference via `ollama launch claude`.
+Ports 3000, 5173, 8000, 8080, 8081, and 9000 are IDE-forwarded on demand. They are not published on host interfaces by the default profile, so parallel workspaces do not reserve or expose them.
+
+## Included toolchain
+
+The image builds the `dev` Kotlin CLI, GraalVM JDK 21, Node.js 24, Python 3.14 through uv, Go 1.25, Rust 1.86, Flutter 3.41, Gradle 9.4, GitHub CLI, and the Codex, Claude, Antigravity, and Ollama CLIs. Ollama routes to `http://host.docker.internal:11434` through `OLLAMA_HOST`.
+
+Run a fresh container rebuild after changing the Dockerfile, then verify the tools as `vscode` before relying on the image for agent work.

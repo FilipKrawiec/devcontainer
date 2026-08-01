@@ -121,4 +121,43 @@ class WorkspaceServiceTest {
             tempDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun `removeWorkspace rejects a path that escapes the projects root`() {
+        val tempDir = File.createTempFile("devws_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+        val outside = File(tempDir.parentFile, "devws_outside_${System.nanoTime()}").apply { mkdirs() }
+        File(outside, "must-survive").writeText("keep")
+
+        try {
+            val result = WorkspaceService(projectsRoot = tempDir).removeWorkspace("../${outside.name}")
+
+            assertTrue(result.isFailure)
+            assertTrue(outside.exists())
+            assertTrue(File(outside, "must-survive").exists())
+        } finally {
+            tempDir.deleteRecursively()
+            outside.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `removeWorkspace rejects a directory that is not a Git worktree`() {
+        val tempDir = File.createTempFile("devws_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+        val notARepository = File(tempDir, "github.com/user/not-a-repository").apply { mkdirs() }
+
+        try {
+            val result = WorkspaceService(projectsRoot = tempDir).removeWorkspace("github.com/user/not-a-repository")
+
+            assertTrue(result.isFailure)
+            assertTrue(notARepository.exists())
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
 }
