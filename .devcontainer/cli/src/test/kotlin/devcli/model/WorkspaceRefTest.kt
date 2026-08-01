@@ -2,6 +2,7 @@ package devcli.model
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class WorkspaceRefTest {
 
@@ -43,5 +44,19 @@ class WorkspaceRefTest {
         assertEquals("https://github.com/FilipKrawiec/skills.git", ref.remoteUrl)
         assertEquals("github.com/FilipKrawiec/skills", ref.relativePath)
         assertEquals("/projects/github.com/FilipKrawiec/skills", ref.targetDirectoryPath)
+    }
+
+    @Test
+    fun `repository references cannot contain path traversal segments`() {
+        assertFailsWith<IllegalArgumentException> {
+            WorkspaceRef.fromRemote("git@github.com:../outside.git")
+        }
+    }
+
+    @Test
+    fun `remote URLs must include a repository path`() {
+        assertFailsWith<IllegalArgumentException> {
+            WorkspaceRef.fromRemote("https://github.com")
+        }
     }
 }

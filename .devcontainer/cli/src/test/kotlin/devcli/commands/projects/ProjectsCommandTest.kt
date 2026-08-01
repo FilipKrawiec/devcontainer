@@ -1,10 +1,12 @@
 package devcli.commands.projects
 
 import com.github.ajalt.clikt.core.subcommands
+import com.github.ajalt.clikt.core.ProgramResult
 import devcli.commands.RootCommand
 import devcli.service.WorkspaceService
 import java.io.File
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ProjectsCommandTest {
@@ -71,5 +73,16 @@ class ProjectsCommandTest {
         val projectsHelpText = projectsCommand.getFormattedHelp()
         assertTrue(projectsHelpText?.contains("get") == true)
         assertTrue(projectsHelpText?.contains("list") == true)
+    }
+
+    @Test
+    fun `dev projects reset requires explicit confirmation`() {
+        val rootCommand = RootCommand().subcommands(
+            ProjectsCommand().subcommands(ResetCommand())
+        )
+
+        assertFailsWith<ProgramResult> {
+            rootCommand.parse(listOf("projects", "reset", "github.com/user/repository"))
+        }
     }
 }

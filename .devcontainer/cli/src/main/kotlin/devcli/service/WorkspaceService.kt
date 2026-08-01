@@ -2,6 +2,8 @@ package devcli.service
 
 import devcli.model.WorkspaceRef
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
 
 data class FetchSummary(
     val relativePath: String,
@@ -29,30 +31,50 @@ class WorkspaceService(
     private val projectsRoot: File = File("/projects")
 ) {
     private fun ensureProjectsRootWritable() {
-        if (!projectsRoot.exists()) {
-            projectsRoot.mkdirs()
+        check(projectsRoot.exists() || projectsRoot.mkdirs()) {
+            "Failed to create projects directory ${projectsRoot.path}"
         }
-        if (projectsRoot.exists() && !projectsRoot.canWrite()) {
-            try {
-                ProcessBuilder("sudo", "chown", "-R", "vscode:vscode", projectsRoot.absolutePath)
-                    .start()
-                    .waitFor()
-            } catch (_: Exception) {
-                // Ignore if sudo is unavailable or fails
-            }
+        check(projectsRoot.isDirectory && projectsRoot.canWrite()) {
+            "Projects directory ${projectsRoot.path} is not writable; fix the volume ownership before cloning repositories"
         }
+    }
+
+    private fun resolveWorkspacePath(relativePath: String): File {
+        val pathInput = relativePath.trim()
+        require(pathInput.isNotBlank()) { "Repository path must not be blank" }
+
+        val untrustedPath = Path.of(pathInput)
+        require(!untrustedPath.isAbsolute && untrustedPath.none { it.toString() == "." || it.toString() == ".." }) {
+            "Repository path must be relative and cannot contain traversal segments"
+        }
+
+        val rootPath = projectsRoot.toPath().toAbsolutePath().normalize()
+        val targetPath = rootPath.resolve(untrustedPath).normalize()
+        require(targetPath.startsWith(rootPath) && targetPath != rootPath) {
+            "Repository path must remain inside ${projectsRoot.path}"
+        }
+
+        val existingAncestor = generateSequence(targetPath) { it.parent }
+            .firstOrNull { Files.exists(it) }
+            ?: throw IllegalStateException("Unable to resolve an existing parent for $targetPath")
+
+        val realRootPath = rootPath.toRealPath()
+        require(existingAncestor.toRealPath().startsWith(realRootPath)) {
+            "Repository path resolves outside ${projectsRoot.path}"
+        }
+
+        return targetPath.toFile()
     }
 
     fun cloneWorkspace(repoUrl: String): Result<String> {
         return try {
             val ref = WorkspaceRef.fromRemote(repoUrl)
-            val targetDir = File(ref.targetDirectoryPath)
+            ensureProjectsRootWritable()
+            val targetDir = resolveWorkspacePath(ref.relativePath)
 
             if (targetDir.exists() && File(targetDir, ".git").exists()) {
-                return Result.failure(IllegalStateException("Repository already exists at ${ref.targetDirectoryPath}"))
+                return Result.failure(IllegalStateException("Repository already exists at ${targetDir.path}"))
             }
-
-            ensureProjectsRootWritable()
 
             val parentDir = targetDir.parentFile
             if (parentDir != null && !parentDir.exists()) {
@@ -62,14 +84,14 @@ class WorkspaceService(
                 }
             }
 
-            println("Cloning ${ref.remoteUrl} into ${ref.targetDirectoryPath}...")
-            val process = ProcessBuilder("git", "clone", ref.remoteUrl, ref.targetDirectoryPath)
+            println("Cloning ${ref.remoteUrl} into ${targetDir.path}...")
+            val process = ProcessBuilder("git", "clone", ref.remoteUrl, targetDir.path)
                 .inheritIO()
                 .start()
 
             val exitCode = process.waitFor()
             if (exitCode == 0) {
-                Result.success(ref.targetDirectoryPath)
+                Result.success(targetDir.path)
             } else {
                 Result.failure(RuntimeException("git clone failed with exit code $exitCode"))
             }
@@ -313,13 +335,17 @@ class WorkspaceService(
     }
 
     fun removeWorkspace(relativeRepoPath: String): Result<String> {
-        val targetDir = File(projectsRoot, relativeRepoPath.trim('/'))
-        if (!targetDir.exists()) {
-            return Result.failure(IllegalArgumentException("Repository not found at ${targetDir.path}"))
-        }
-
         return try {
-            targetDir.deleteRecursively()
+            val targetDir = resolveWorkspacePath(relativeRepoPath)
+            if (!targetDir.exists()) {
+                return Result.failure(IllegalArgumentException("Repository not found at ${targetDir.path}"))
+            }
+            if (!File(targetDir, ".git").exists()) {
+                return Result.failure(IllegalArgumentException("Refusing to remove ${targetDir.path}: it is not a Git worktree"))
+            }
+            if (!targetDir.deleteRecursively()) {
+                return Result.failure(IllegalStateException("Failed to remove repository ${targetDir.path}"))
+            }
             Result.success(targetDir.path)
         } catch (e: Exception) {
             Result.failure(e)

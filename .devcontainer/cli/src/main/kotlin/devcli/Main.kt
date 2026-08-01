@@ -1,6 +1,7 @@
 package devcli
 
 import com.github.ajalt.clikt.core.subcommands
+import devcli.commands.DoctorCommand
 import devcli.commands.RootCommand
 import devcli.commands.projects.GetCommand
 import devcli.commands.projects.ListCommand
@@ -15,6 +16,6 @@ fun main(args: Array<String>) {
         ListCommand(service),
         ResetCommand(service)
     )
-    val rootCommand = RootCommand().subcommands(projectsCommand)
+    val rootCommand = RootCommand().subcommands(DoctorCommand(), projectsCommand)
     rootCommand.main(args)
 }

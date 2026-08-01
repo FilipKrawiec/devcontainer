@@ -1,4 +1,6 @@
-FROM mcr.microsoft.com/devcontainers/base:ubuntu
+FROM mcr.microsoft.com/devcontainers/base:ubuntu@sha256:bb779775cfc7d2e65f9b0f80f17770878f5a50c00d15cc873b627c5c214ce37e
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG TARGETARCH
 ARG NODE_VERSION=24.14.0
@@ -20,11 +22,11 @@ ENV GOPATH=/home/vscode/go
 ENV GOCACHE=/home/vscode/.cache/go-build
 ENV PUB_CACHE=/home/vscode/.pub-cache
 ENV GRADLE_USER_HOME=/home/vscode/.gradle
-ENV CARGO_HOME=/home/vscode/.cargo
-ENV RUSTUP_HOME=/home/vscode/.rustup
+ENV RUSTUP_HOME=/opt/rustup
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 ENV FLUTTER_HOME=/opt/flutter
 ENV FLUTTER_SUPPRESS_ANALYTICS=true
-ENV PATH=/home/vscode/.local/share/pnpm:/opt/graalvm/bin:/root/.local/bin:/home/vscode/.local/bin:/home/vscode/.cargo/bin:/root/.cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
+ENV PATH=/home/vscode/.local/share/pnpm:/opt/graalvm/bin:/home/vscode/.local/bin:/opt/cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
 
 RUN apt-get update \
     && export DEBIAN_FRONTEND=noninteractive \
@@ -75,7 +77,7 @@ RUN apt-get update \
     # Install Python (uv)
     && curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL=/usr/local/bin sh \
     && uv python install "${PYTHON_VERSION}" \
-    && ln -sf "/root/.local/share/uv/python/cpython-${PYTHON_VERSION}-linux-${UV_ARCH}-gnu/bin/python3" /usr/local/bin/python3 \
+    && ln -sf "/opt/uv/python/cpython-${PYTHON_VERSION}-linux-${UV_ARCH}-gnu/bin/python3" /usr/local/bin/python3 \
     && ln -sf /usr/local/bin/python3 /usr/local/bin/python \
     # Install pnpm and OpenAI Codex CLI
     && npm install -g pnpm @openai/codex \
@@ -99,20 +101,16 @@ RUN apt-get update \
     && ln -s "/opt/gradle-${GRADLE_VERSION}/bin/gradle" /usr/local/bin/gradle \
     && rm -f /tmp/gradle.zip
 
-# Pre-populate SSH known hosts for GitLab, GitHub, Bitbucket
-RUN mkdir -p /etc/ssh && ssh-keyscan gitlab.com github.com bitbucket.org >> /etc/ssh/ssh_known_hosts 2>/dev/null || true
+# Set zsh as the default shell for the vscode user. Docker access is configured only in an explicit privileged profile.
+RUN chsh -s /bin/zsh vscode
 
-# Ensure non-root docker socket access and zsh default shell for vscode user
-RUN groupadd -f docker && usermod -aG docker vscode && chsh -s /bin/zsh vscode
-
-RUN rm -rf /root/.cargo /root/.rustup \
-    && case "${TARGETARCH}" in \
+RUN case "${TARGETARCH}" in \
          amd64) RUST_TRIPLE="x86_64-unknown-linux-gnu" ;; \
          arm64) RUST_TRIPLE="aarch64-unknown-linux-gnu" ;; \
          *) echo "unsupported TARGETARCH: arm64" >&2; exit 1 ;; \
        esac \
-    && curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --default-toolchain "${RUST_VERSION}-${RUST_TRIPLE}" --no-modify-path \
-    && rm -f /root/.zshenv 2>/dev/null || true
+    && CARGO_HOME=/opt/cargo RUSTUP_HOME=/opt/rustup curl --fail --show-error --silent https://sh.rustup.rs | CARGO_HOME=/opt/cargo RUSTUP_HOME=/opt/rustup sh -s -- -y --profile minimal --default-toolchain "${RUST_VERSION}-${RUST_TRIPLE}" --no-modify-path \
+    && chmod -R a+rX /opt/cargo /opt/rustup
 
 RUN git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter/flutter.git /opt/flutter \
     && /opt/flutter/bin/flutter config --no-analytics \
