@@ -28,12 +28,14 @@ class RuntimeServiceTest {
                 requiredTools = listOf("dev", "node", "python", "codex"),
                 path = binDir.path,
                 projectsRoot = projectsDir,
-                dockerSocket = File(tempDir, "docker.sock")
+                dockerSocket = File(tempDir, "docker.sock"),
+                previewSidecarProbe = { true }
             ).inspect()
 
             assertEquals(listOf("codex"), report.missingTools)
             assertTrue(report.projectsWritable)
             assertFalse(report.dockerSocketAvailable)
+            assertTrue(report.previewSidecarAvailable)
         } finally {
             tempDir.deleteRecursively()
         }

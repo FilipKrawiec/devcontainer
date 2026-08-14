@@ -21,6 +21,7 @@ class DoctorCommand(
 
         echo("Projects volume: ${if (report.projectsWritable) "writable" else "not writable"}")
         echo("Docker socket: ${if (report.dockerSocketAvailable) "available" else "not available"}")
+        echo("Preview sidecar (port 8383): ${if (report.previewSidecarAvailable) "running (http://localhost:8383)" else "not running"}")
 
         if (report.missingTools.isNotEmpty() || !report.projectsWritable) {
             throw ProgramResult(1)
