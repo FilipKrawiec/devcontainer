@@ -15,7 +15,6 @@ Your macOS host computer contains only standard configuration files:
 ├── .devcontainer/
 │   ├── devcontainer.json   # Official Dev Container specification
 │   ├── docker-compose.yml  # Docker Compose orchestration & sidecar definitions
-│   ├── nginx-preview.conf  # Nginx HTTP preview sidecar configuration
 │   ├── Dockerfile          # Polyglot container image definition
 │   └── cli/                # Kotlin Clikt CLI source code (built inside Docker)
 ├── AGENTS.md               # Machine-facing agent contract
