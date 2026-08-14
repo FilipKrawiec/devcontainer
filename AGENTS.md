@@ -12,9 +12,10 @@ Project source code lives exclusively inside the persistent Docker named volume 
 
 - A single Docker named volume (`devws_projects`) holds all active Git working trees under `/projects/<git-host>/<group>/<project>`.
 - One persistent Docker named volume (`devws_home`) holds container state at `/home/vscode`; image-provided executables and toolchains live outside this mount.
-- Opening `~/Developer` in Zed, Antigravity IDE, or VS Code launches/attaches the Master Dev Container defined in `.devcontainer/devcontainer.json`.
+- Opening `~/Developer` in Zed, Antigravity IDE, or VS Code launches/attaches the Master Dev Container defined in `.devcontainer/devcontainer.json` via Docker Compose.
+- An Nginx HTTP preview sidecar (`master_dev_preview_sidecar`) runs alongside the workspace on port `8383`, mounting `devws_projects` read-only to serve HTML artifacts and documentation directly to host browsers.
 - Host CLI interactions use the official `@devcontainers/cli` (`devcontainer build`, `devcontainer up`, `devcontainer exec`).
-- The default configuration mounts the Docker Desktop socket through Docker-outside-of-Docker so repositories can build images and run sibling services. Host SSH private keys remain unmounted.
+- The default configuration mounts the Docker Desktop socket so repositories can build images and run sibling services. Host SSH private keys remain unmounted.
 - Ollama runs on the macOS host and is reached from containers through `http://host.docker.internal:11434`.
 
 ## Agent Expectations
