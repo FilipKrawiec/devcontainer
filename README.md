@@ -37,9 +37,9 @@ For Codex, Claude, or Antigravity agents, open an in-container terminal as `vsco
 Install the official Dev Container CLI:
 
 ```sh
-npm install -g @devcontainers/cli
-devcontainer build --workspace-folder ~/Developer
-devcontainer up --workspace-folder ~/Developer
+just install-devcontainer   # or npm install -g @devcontainers/cli
+just build                  # or devcontainer build --workspace-folder ~/Developer
+just up                     # or devcontainer up --workspace-folder ~/Developer
 ```
 
 ---
@@ -114,6 +114,7 @@ just check-tools           # or ./scripts/update-toolchain.py --check
 
 ```sh
 just --list               # List all available recipes
+just install-devcontainer # Install the official @devcontainers/cli on the host
 just build                # Build the Master Dev Container image locally
 just up                   # Start the Dev Container environment
 just down                 # Stop container services and sidecars

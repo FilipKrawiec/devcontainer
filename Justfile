@@ -22,8 +22,12 @@ status-tools:
     ./scripts/update-toolchain.py --json
 
 # -----------------------------------------------------------------------------
-# Dev Container Lifecycle
+# Host Setup & Dev Container Lifecycle
 # -----------------------------------------------------------------------------
+
+# Install the official Dev Container CLI (@devcontainers/cli) on the host
+install-devcontainer:
+    npm install -g @devcontainers/cli
 
 # Build the Master Dev Container image locally
 build:

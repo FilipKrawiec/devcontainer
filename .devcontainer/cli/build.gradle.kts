@@ -16,6 +16,17 @@ application {
     mainClass.set("devcli.MainKt")
 }
 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.release.set(21)
+}
+
 tasks.test {
     useJUnitPlatform()
 }
+
