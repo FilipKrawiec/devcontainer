@@ -29,7 +29,7 @@ Project source code lives exclusively inside the persistent Docker named volume 
 
 ## SDLC Orchestration & Dev CLI
 
-This repository owns and hosts the **SDLC Orchestration Plugin** (`plugins/common/sdlc` and `plugins/agy/sdlc`) and the Kotlin Clikt CLI (`dev`):
+This repository owns and hosts the **SDLC Orchestration Plugin** (`plugins/sdlc`) and the Kotlin Clikt CLI (`dev`):
 - `deliver`: Provider-neutral orchestration across Define, Specify, Plan, Dispatch, Verify, Review, and Ship.
 - `define` & `specify`: Backlog capture and specification refinement.
 - `improve`: Retrospective learning and CLI capability gap auditing (`cli-capability-gap`).

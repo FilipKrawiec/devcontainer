@@ -75,47 +75,38 @@ preview-logs:
     docker logs master_dev_preview_sidecar -f
 
 # -----------------------------------------------------------------------------
-# SDLC Plugins Management
+# SDLC Plugin Management
 # -----------------------------------------------------------------------------
 
-# Install SDLC plugins into local Antigravity IDE configuration
+# Install SDLC plugin into local Antigravity IDE configuration
 install-plugins:
     #!/usr/bin/env bash
     set -euo pipefail
     target_dir="${AGY_IDE_PLUGIN_DIR:-"$HOME/.gemini/config/plugins"}"
     mkdir -p "${target_dir}"
-    for dir in plugins/common/*; do
+    rm -rf "${target_dir}/filipkrawiec-agy-sdlc"
+    for dir in plugins/*; do
       [ -d "$dir" ] || continue
       pkg="filipkrawiec-$(basename "$dir")"
       rm -rf "${target_dir}/${pkg}"
       cp -r "$dir" "${target_dir}/${pkg}"
     done
-    for dir in plugins/agy/*; do
-      [ -d "$dir" ] || continue
-      pkg="filipkrawiec-agy-$(basename "$dir")"
-      rm -rf "${target_dir}/${pkg}"
-      cp -r "$dir" "${target_dir}/${pkg}"
-    done
-    echo "Installed SDLC plugins into ${target_dir}"
+    echo "Installed SDLC plugin into ${target_dir}"
 
-# Symlink SDLC plugins into local Antigravity IDE configuration (dev mode)
+# Symlink SDLC plugin into local Antigravity IDE configuration (dev mode)
 link-plugins:
     #!/usr/bin/env bash
     set -euo pipefail
     repo_root="$(pwd -P)"
     target_dir="${AGY_IDE_PLUGIN_DIR:-"$HOME/.gemini/config/plugins"}"
     mkdir -p "${target_dir}"
-    for dir in plugins/common/*; do
+    rm -rf "${target_dir}/filipkrawiec-agy-sdlc"
+    for dir in plugins/*; do
       [ -d "$dir" ] || continue
       pkg="filipkrawiec-$(basename "$dir")"
       rm -rf "${target_dir}/${pkg}"
       ln -s "${repo_root}/${dir}" "${target_dir}/${pkg}"
     done
-    for dir in plugins/agy/*; do
-      [ -d "$dir" ] || continue
-      pkg="filipkrawiec-agy-$(basename "$dir")"
-      rm -rf "${target_dir}/${pkg}"
-      ln -s "${repo_root}/${dir}" "${target_dir}/${pkg}"
-    done
-    echo "Linked SDLC plugins into ${target_dir}"
+    echo "Linked SDLC plugin into ${target_dir}"
+
 
