@@ -36,17 +36,26 @@ class ForgeCommand(
         )
     }
 
-    override fun run() = Unit
+    override fun run() {
+        if (currentContext.invokedSubcommand == null) {
+            echo(getFormattedHelp())
+        }
+    }
 
     private class BranchGroup(forges: Forges) : CliktCommand(
         name = "branch",
-        help = "Manage Git branches"
+        help = "Manage Git branches",
+        invokeWithoutSubcommand = true
     ) {
         init {
             subcommands(CreateBranchCommand(forges))
         }
 
-        override fun run() = Unit
+        override fun run() {
+            if (currentContext.invokedSubcommand == null) {
+                echo(getFormattedHelp())
+            }
+        }
     }
 
     private class CreateBranchCommand(private val forges: Forges) : CliktCommand(
@@ -87,7 +96,8 @@ class ForgeCommand(
 
     private class PrGroup(forges: Forges) : CliktCommand(
         name = "pr",
-        help = "Manage Pull Requests"
+        help = "Manage Pull Requests",
+        invokeWithoutSubcommand = true
     ) {
         init {
             subcommands(
@@ -97,7 +107,11 @@ class ForgeCommand(
             )
         }
 
-        override fun run() = Unit
+        override fun run() {
+            if (currentContext.invokedSubcommand == null) {
+                echo(getFormattedHelp())
+            }
+        }
     }
 
     private class CreatePrCommand(private val forges: Forges) : CliktCommand(

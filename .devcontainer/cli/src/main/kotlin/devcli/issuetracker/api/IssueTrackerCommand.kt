@@ -53,7 +53,11 @@ class IssueTrackerCommand(
         )
     }
 
-    override fun run() = Unit
+    override fun run() {
+        if (currentContext.invokedSubcommand == null) {
+            echo(getFormattedHelp())
+        }
+    }
 
     private class CreateCommand(private val workItems: WorkItems) : CliktCommand(
         name = "create",
