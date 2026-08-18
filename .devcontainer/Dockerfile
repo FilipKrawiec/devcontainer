@@ -3,13 +3,13 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu@sha256:bb779775cfc7d2e65f9b0f80
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG TARGETARCH
-ARG NODE_VERSION=24.14.0
-ARG PYTHON_VERSION=3.14.3
-ARG GO_VERSION=1.25.5
-ARG GRADLE_VERSION=9.4.0
-ARG RUST_VERSION=1.86.0
-ARG FLUTTER_VERSION=3.41.2
-ARG GRAALVM_VERSION=21.0.2
+ARG NODE_VERSION=26.7.0
+ARG PYTHON_VERSION=3.14.7
+ARG GO_VERSION=1.26.6
+ARG GRADLE_VERSION=9.7.0
+ARG RUST_VERSION=1.97.1
+ARG FLUTTER_VERSION=3.47.0
+ARG GRAALVM_VERSION=25.0.2
 
 # Early Environment setup to ensure PATH contains local bin directories during build
 ENV JAVA_HOME=/opt/graalvm
@@ -39,6 +39,7 @@ RUN apt-get update \
         git \
         gpg \
         jq \
+        just \
         libglu1-mesa \
         libstdc++6 \
         make \

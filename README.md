@@ -99,4 +99,24 @@ ports:
 
 ## Included Toolchain
 
-The image builds the `dev` Kotlin CLI, GraalVM JDK 21, Node.js 24, Python 3.14 through uv, Go 1.25, Rust 1.86, Flutter 3.41, Gradle 9.4, GitHub CLI, and the Codex, Claude, Antigravity, and Ollama CLIs. Ollama routes to `http://host.docker.internal:11434` through `OLLAMA_HOST`.
+The image builds the `dev` Kotlin CLI, GraalVM JDK 25, Node.js 26, Python 3.14 through uv, Go 1.26, Rust 1.97, Flutter 3.47, Gradle 9.7, GitHub CLI, and the Codex, Claude, Antigravity, and Ollama CLIs. Ollama routes to `http://host.docker.internal:11434` through `OLLAMA_HOST`.
+
+### Updating Toolchain Versions
+
+To automatically check for upstream updates across all tools and synchronize `.devcontainer/Dockerfile`, `AGENTS.md`, and `README.md`:
+
+```sh
+just update-tools          # or ./scripts/update-toolchain.py
+just check-tools           # or ./scripts/update-toolchain.py --check
+```
+
+### Common Commands (`just`)
+
+```sh
+just --list               # List all available recipes
+just build                # Build the Master Dev Container image locally
+just up                   # Start the Dev Container environment
+just down                 # Stop container services and sidecars
+just update-tools         # Probe upstream and update all toolchain versions
+just build-cli            # Compile the Kotlin Clikt dev-cli
+```
