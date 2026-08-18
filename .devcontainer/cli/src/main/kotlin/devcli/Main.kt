@@ -11,11 +11,22 @@ import devcli.service.WorkspaceService
 
 fun main(args: Array<String>) {
     val service = WorkspaceService()
+
+    // Structured projects subcommands
     val projectsCommand = ProjectsCommand().subcommands(
         GetCommand(service),
         ListCommand(service),
         ResetCommand(service)
     )
-    val rootCommand = RootCommand().subcommands(DoctorCommand(), projectsCommand)
+
+    // Root command with both structured groups and top-level ergonomic aliases
+    val rootCommand = RootCommand().subcommands(
+        DoctorCommand(),
+        projectsCommand,
+        GetCommand(service),
+        ListCommand(service),
+        ResetCommand(service)
+    )
+
     rootCommand.main(args)
 }

@@ -33,9 +33,62 @@ class RuntimeServiceTest {
             ).inspect()
 
             assertEquals(listOf("codex"), report.missingTools)
+            assertFalse(report.allToolsInstalled)
             assertTrue(report.projectsWritable)
             assertFalse(report.dockerSocketAvailable)
             assertTrue(report.previewSidecarAvailable)
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `inspect probes tool versions and categorizes correctly`() {
+        val tempDir = File.createTempFile("devws_runtime_test2_", "").apply {
+            delete()
+            mkdirs()
+        }
+        val binDir = File(tempDir, "bin").apply { mkdirs() }
+        val projectsDir = File(tempDir, "projects").apply { mkdirs() }
+
+        val nodeScript = File(binDir, "node").apply {
+            writeText("#!/bin/sh\necho 'v24.0.0'\n")
+            setExecutable(true)
+        }
+        val gitScript = File(binDir, "git").apply {
+            writeText("#!/bin/sh\necho 'git version 2.47.1'\n")
+            setExecutable(true)
+        }
+
+        try {
+            val tools = listOf(
+                ToolDefinition("git", ToolCategory.CORE, listOf("--version")),
+                ToolDefinition("node", ToolCategory.RUNTIMES, listOf("--version")),
+                ToolDefinition("claude", ToolCategory.AI_AGENTS, listOf("--version"))
+            )
+
+            val report = RuntimeService(
+                toolDefinitions = tools,
+                path = binDir.path,
+                projectsRoot = projectsDir,
+                dockerSocket = File(tempDir, "docker.sock"),
+                previewSidecarProbe = { false },
+                probeVersions = true
+            ).inspect()
+
+            val gitStatus = report.toolStatuses.first { it.name == "git" }
+            assertTrue(gitStatus.isInstalled)
+            assertEquals("2.47.1", gitStatus.version)
+            assertEquals(ToolCategory.CORE, gitStatus.category)
+
+            val nodeStatus = report.toolStatuses.first { it.name == "node" }
+            assertTrue(nodeStatus.isInstalled)
+            assertEquals("v24.0.0", nodeStatus.version)
+            assertEquals(ToolCategory.RUNTIMES, nodeStatus.category)
+
+            val claudeStatus = report.toolStatuses.first { it.name == "claude" }
+            assertFalse(claudeStatus.isInstalled)
+            assertEquals(ToolCategory.AI_AGENTS, claudeStatus.category)
         } finally {
             tempDir.deleteRecursively()
         }

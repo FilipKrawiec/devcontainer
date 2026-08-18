@@ -115,6 +115,7 @@ RUN case "${TARGETARCH}" in \
 RUN git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter/flutter.git /opt/flutter \
     && /opt/flutter/bin/flutter config --no-analytics \
     && /opt/flutter/bin/flutter precache --linux \
+    && chmod -R a+rwX /opt/flutter \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
