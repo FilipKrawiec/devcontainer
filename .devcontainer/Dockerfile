@@ -197,6 +197,7 @@ RUN chsh -s /bin/zsh vscode \
     && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /etc/bash.bashrc \
     && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
     && echo 'autoload -U colors && colors 2>/dev/null || true' >> /etc/zsh/zshrc \
+    && echo 'setopt PROMPT_SUBST' >> /etc/zsh/zshrc \
     && echo 'PROMPT="%F{blue}%~%f %F{green}\$(git branch --show-current 2>/dev/null)%f %F{magenta}❯%f "' >> /etc/zsh/zshrc \
     && echo 'source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh 2>/dev/null || true' >> /etc/zsh/zshrc \
     && echo 'source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null || true' >> /etc/zsh/zshrc
