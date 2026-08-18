@@ -1,3 +1,12 @@
+---
+active_skills:
+  - deliver
+  - define
+  - specify
+  - improve
+  - scaffold-monorepo
+---
+
 # AGENTS
 
 This repository defines the Master Dev Container development environment on macOS using the official Dev Container specification (`@devcontainers/cli`).
@@ -18,6 +27,14 @@ Project source code lives exclusively inside the persistent Docker named volume 
 - The default configuration mounts the Docker Desktop socket so repositories can build images and run sibling services. Host SSH private keys remain unmounted.
 - Ollama runs on the macOS host and is reached from containers through `http://host.docker.internal:11434`.
 
+## SDLC Orchestration & Dev CLI
+
+This repository owns and hosts the **SDLC Orchestration Plugin** (`plugins/common/sdlc` and `plugins/agy/sdlc`) and the Kotlin Clikt CLI (`dev`):
+- `deliver`: Provider-neutral orchestration across Define, Specify, Plan, Dispatch, Verify, Review, and Ship.
+- `define` & `specify`: Backlog capture and specification refinement.
+- `improve`: Retrospective learning and CLI capability gap auditing (`cli-capability-gap`).
+- Standardize on `dev issuetracker` for backlog and phase tracking, and `dev forge` for branch, PR, review, and merge operations.
+
 ## Agent Expectations
 
 - AI Agents (Antigravity CLI / `agy`, `claude`, `codex`, Zed ACP) execute natively inside the Master Dev Container where all compilers, test runners, and git tools are pre-installed.
@@ -33,3 +50,4 @@ Project source code lives exclusively inside the persistent Docker named volume 
 
 - `AGENTS.md` is the primary machine-facing contract.
 - `README.md` is the primary human-facing overview.
+
