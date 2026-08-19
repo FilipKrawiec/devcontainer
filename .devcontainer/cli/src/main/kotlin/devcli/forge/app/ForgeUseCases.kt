@@ -3,7 +3,11 @@ package devcli.forge.app
 import devcli.forge.domain.BranchName
 import devcli.forge.domain.CommentBody
 import devcli.forge.domain.Forges
+import devcli.forge.domain.JobId
+import devcli.forge.domain.JobTrace
 import devcli.forge.domain.MergeStrategy
+import devcli.forge.domain.PipelineRun
+import devcli.forge.domain.PipelineRunId
 import devcli.forge.domain.PrBody
 import devcli.forge.domain.PrTitle
 import devcli.forge.domain.PullRequest
@@ -71,6 +75,55 @@ class MergePullRequestUseCase(private val forges: Forges) {
             Outcome.Success(prNumber, strategy, deleteBranch)
         } catch (e: Exception) {
             Outcome.Failure(e.message ?: "Failed to merge pull request")
+        }
+    }
+}
+
+class ListPipelineRunsUseCase(private val forges: Forges) {
+    sealed interface Outcome {
+        data class Success(val runs: List<PipelineRun>) : Outcome
+        data class Failure(val message: String) : Outcome
+    }
+
+    fun execute(repo: RepositorySlug, branch: BranchName? = null, status: String? = null, limit: Int = 10): Outcome {
+        return try {
+            val runs = forges.listPipelineRuns(repo, branch, status, limit)
+            Outcome.Success(runs)
+        } catch (e: Exception) {
+            Outcome.Failure(e.message ?: "Failed to list pipeline runs")
+        }
+    }
+}
+
+class GetPipelineRunUseCase(private val forges: Forges) {
+    sealed interface Outcome {
+        data class Success(val run: PipelineRun) : Outcome
+        data class Failure(val message: String) : Outcome
+    }
+
+    fun execute(repo: RepositorySlug, runId: PipelineRunId): Outcome {
+        return try {
+            val run = forges.getPipelineRun(repo, runId)
+            Outcome.Success(run)
+        } catch (e: Exception) {
+            Outcome.Failure(e.message ?: "Failed to get pipeline run")
+        }
+    }
+}
+
+class GetJobTraceUseCase(private val forges: Forges) {
+    sealed interface Outcome {
+        data class Success(val trace: JobTrace, val matchedLines: List<String>) : Outcome
+        data class Failure(val message: String) : Outcome
+    }
+
+    fun execute(repo: RepositorySlug, jobId: JobId, pattern: String? = null, failedOnly: Boolean = false): Outcome {
+        return try {
+            val trace = forges.getJobTrace(repo, jobId)
+            val lines = trace.filter(pattern, failedOnly)
+            Outcome.Success(trace, lines)
+        } catch (e: Exception) {
+            Outcome.Failure(e.message ?: "Failed to get job trace")
         }
     }
 }

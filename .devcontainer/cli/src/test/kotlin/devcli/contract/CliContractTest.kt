@@ -4,7 +4,10 @@ import devcli.createDevCli
 import devcli.forge.InMemoryForges
 import devcli.forge.api.ForgeCommand
 import devcli.forge.api.ForgeJsonFormat
+import devcli.forge.api.JobTraceDto
 import devcli.forge.api.MergeResultDto
+import devcli.forge.api.PipelineJobDto
+import devcli.forge.api.PipelineRunDto
 import devcli.forge.api.PullRequestDto
 import devcli.forge.api.ReviewResultDto
 import devcli.issuetracker.InMemoryWorkItems
@@ -52,6 +55,15 @@ class CliContractTest {
 
         assertTrue(subcommands.contains("branch"), "ForgeCommand must register 'branch'")
         assertTrue(subcommands.contains("pr"), "ForgeCommand must register 'pr'")
+        assertTrue(subcommands.contains("pipeline"), "ForgeCommand must register 'pipeline'")
+
+        val pipelineCmd = forge.registeredSubcommands().first { it.commandName == "pipeline" }
+        val pipelineSubcommands = pipelineCmd.registeredSubcommands().map { it.commandName }.toSet()
+        assertEquals(
+            setOf("list", "view", "trace"),
+            pipelineSubcommands,
+            "ForgeCommand 'pipeline' group must register 'list', 'view', 'trace'"
+        )
     }
 
     @Test
@@ -106,5 +118,48 @@ class CliContractTest {
         val reviewJson = ForgeJsonFormat.toJson(reviewDto)
         assertTrue(reviewJson.contains("\"verdict\": \"approve\""))
         assertTrue(reviewJson.contains("\"notes\": \"Quality Engineer APPROVED\""))
+    }
+
+    @Test
+    fun `Pipeline and JobTrace JSON schemas fulfill deliver contract`() {
+        val pipelineDto = PipelineRunDto(
+            id = 1001L,
+            workflow = "Build and Test",
+            branch = "feat/pipeline",
+            status = "failure",
+            conclusion = "failure",
+            event = "pull_request",
+            commitSha = "abc12345",
+            createdAt = "2026-08-19T12:00:00Z",
+            url = "https://github.com/owner/repo/actions/runs/1001",
+            jobs = listOf(
+                PipelineJobDto(
+                    id = 2001L,
+                    name = "gradle-test",
+                    status = "completed",
+                    conclusion = "failure",
+                    startedAt = "2026-08-19T12:00:05Z",
+                    completedAt = "2026-08-19T12:01:10Z",
+                    url = "https://github.com/owner/repo/actions/jobs/2001"
+                )
+            )
+        )
+        val runJson = ForgeJsonFormat.toJson(pipelineDto)
+        assertTrue(runJson.contains("\"id\": 1001"))
+        assertTrue(runJson.contains("\"workflow\": \"Build and Test\""))
+        assertTrue(runJson.contains("\"status\": \"failure\""))
+        assertTrue(runJson.contains("\"jobs\": ["))
+
+        val traceDto = JobTraceDto(
+            jobId = 2001L,
+            totalLines = 50,
+            matchedLines = 2,
+            lines = listOf("[ERROR] Test failed", "[FATAL] Process exited with 1")
+        )
+        val traceJson = ForgeJsonFormat.toJson(traceDto)
+        assertTrue(traceJson.contains("\"jobId\": 2001"))
+        assertTrue(traceJson.contains("\"totalLines\": 50"))
+        assertTrue(traceJson.contains("\"matchedLines\": 2"))
+        assertTrue(traceJson.contains("[ERROR] Test failed"))
     }
 }
