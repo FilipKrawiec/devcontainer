@@ -26,6 +26,8 @@
   "forwardPorts": [
     3000,
     4000,
+    4400,
+    4500,
     5001,
     5173,
     8000,
@@ -37,6 +39,7 @@
     9000,
     9099,
     9100,
+    9150,
     9199,
     54321,
     54323,
@@ -50,6 +53,14 @@
     "4000": {
       "label": "Firebase Emulator Suite UI",
       "onAutoForward": "notify"
+    },
+    "4400": {
+      "label": "Firebase Emulator Hub",
+      "onAutoForward": "silent"
+    },
+    "4500": {
+      "label": "Firebase Emulator Logging",
+      "onAutoForward": "silent"
     },
     "5001": {
       "label": "Firebase Functions Emulator",
@@ -76,7 +87,7 @@
       "onAutoForward": "notify"
     },
     "8085": {
-      "label": "Firebase Firestore Emulator",
+      "label": "Flutter Web Dev Server (kBand)",
       "onAutoForward": "notify"
     },
     "8383": {
@@ -94,6 +105,10 @@
     "9100": {
       "label": "Flutter DevTools",
       "onAutoForward": "notify"
+    },
+    "9150": {
+      "label": "Firebase Firestore Emulator WebSocket",
+      "onAutoForward": "silent"
     },
     "9199": {
       "label": "Firebase Storage Emulator",
