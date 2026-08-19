@@ -112,7 +112,7 @@ ARG FLUTTER_VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl unzip \
     && git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter/flutter.git /target/opt/flutter \
     && /target/opt/flutter/bin/flutter config --no-analytics \
-    && /target/opt/flutter/bin/flutter precache --linux \
+    && /target/opt/flutter/bin/flutter precache --linux --web \
     && chmod -R a+rwX /target/opt/flutter
 
 # -----------------------------------------------------------------------------
@@ -151,7 +151,8 @@ ENV RUSTUP_HOME=/opt/rustup
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 ENV FLUTTER_HOME=/opt/flutter
 ENV FLUTTER_SUPPRESS_ANALYTICS=true
-ENV PATH=/home/vscode/.local/share/pnpm:/opt/graalvm/bin:/home/vscode/.local/bin:/opt/cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
+ENV CHROME_EXECUTABLE=/usr/bin/chromium
+ENV PATH=/home/vscode/.local/share/pnpm:/home/vscode/.pub-cache/bin:/opt/graalvm/bin:/home/vscode/.local/bin:/opt/cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
 
 # 1. Base OS Packages & System Repositories (rarely invalidated)
 RUN apt-get update \
@@ -159,6 +160,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         ca-certificates \
+        chromium \
+        clang \
+        cmake \
         curl \
         file \
         git-lfs \
@@ -167,9 +171,14 @@ RUN apt-get update \
         jq \
         just \
         libglu1-mesa \
+        libgtk-3-dev \
+        liblzma-dev \
         libstdc++6 \
         make \
+        mesa-utils \
+        ninja-build \
         openssh-client \
+        pkg-config \
         python3 \
         python3-pip \
         python3-venv \
@@ -192,7 +201,8 @@ RUN apt-get update \
 
 # 2. Configure Shell, Defaults, and User Workspace Directories
 RUN chsh -s /bin/zsh vscode \
-    && mkdir -p /projects /home/vscode /home/vscode/.local/share/pnpm /home/vscode/.cache \
+    && mkdir -p /projects /home/vscode /home/vscode/.local/share/pnpm /home/vscode/.pub-cache /home/vscode/.cache \
+    && git config --system --add safe.directory /opt/flutter \
     && echo 'store-dir=/home/vscode/.local/share/pnpm/store' > /etc/pnpmrc \
     && echo 'eval "$(dev --generate-completion bash 2>/dev/null)"' >> /etc/bash.bashrc \
     && echo 'eval "$(dev --generate-completion zsh 2>/dev/null)"' >> /etc/zsh/zshrc \
@@ -213,10 +223,10 @@ COPY --from=fetch-rust /target/opt/cargo /opt/cargo
 COPY --from=fetch-rust /target/opt/rustup /opt/rustup
 COPY --from=fetch-flutter /target/opt/flutter /opt/flutter
 
-# 4. Install Global CLI Tools (pnpm, Codex, Claude, AGY, Ollama, Gradle symlink)
+# 4. Install Global CLI Tools (pnpm, Codex, Firebase Tools, Claude, AGY, Ollama, Gradle symlink)
 RUN ln -sf "/opt/gradle-${GRADLE_VERSION}/bin/gradle" /usr/local/bin/gradle \
-    # Install pnpm and OpenAI Codex CLI
-    && npm install -g pnpm @openai/codex \
+    # Install pnpm, OpenAI Codex CLI, and Firebase Tools
+    && npm install -g pnpm @openai/codex firebase-tools \
     # Install Claude Code CLI via official install script
     && curl -fsSL https://claude.ai/install.sh | bash \
     && (cp /root/.local/bin/claude /usr/local/bin/claude 2>/dev/null || true) \
