@@ -341,9 +341,40 @@ class WorkspaceService(
         return workspaces.map { getWorkspaceDetail(it) }
     }
 
+    private fun cleanupEmptyParents(dir: File) {
+        var current = dir.parentFile
+        val rootPath = projectsRoot.toPath().toAbsolutePath().normalize()
+        while (current != null) {
+            val currentPath = current.toPath().toAbsolutePath().normalize()
+            if (currentPath == rootPath || !currentPath.startsWith(rootPath)) {
+                break
+            }
+            val contents = current.list()
+            if (contents != null && contents.isEmpty()) {
+                if (!current.delete()) break
+                current = current.parentFile
+            } else {
+                break
+            }
+        }
+    }
+
     fun removeWorkspace(relativeRepoPath: String): Result<String> {
         return try {
-            val targetDir = resolveWorkspacePath(relativeRepoPath)
+            val matching = findMatchingWorkspaces(relativeRepoPath)
+            val resolvedRelPath = when {
+                matching.size == 1 -> matching.first()
+                matching.size > 1 -> return Result.failure(
+                    IllegalArgumentException("Ambiguous repository reference '$relativeRepoPath'. Matches: ${matching.joinToString(", ")}")
+                )
+                else -> try {
+                    WorkspaceRef.fromRemote(relativeRepoPath).relativePath
+                } catch (_: Exception) {
+                    relativeRepoPath.trim().trim('/')
+                }
+            }
+
+            val targetDir = resolveWorkspacePath(resolvedRelPath)
             if (!targetDir.exists()) {
                 return Result.failure(IllegalArgumentException("Repository not found at ${targetDir.path}"))
             }
@@ -353,6 +384,7 @@ class WorkspaceService(
             if (!targetDir.deleteRecursively()) {
                 return Result.failure(IllegalStateException("Failed to remove repository ${targetDir.path}"))
             }
+            cleanupEmptyParents(targetDir)
             Result.success(targetDir.path)
         } catch (e: Exception) {
             Result.failure(e)

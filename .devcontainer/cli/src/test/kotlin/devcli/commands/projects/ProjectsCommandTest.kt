@@ -149,22 +149,50 @@ class ProjectsCommandTest {
     }
 
     @Test
-    fun `dev reset with --yes successfully removes repository`() {
+    fun `dev reset with --yes successfully removes repository and prunes empty parents`() {
         val tempDir = File.createTempFile("devws_reset_test_", "").apply {
             delete()
             mkdirs()
         }
 
         try {
-            val repoDir = File(tempDir, "github.com/user/to-delete/.git").apply { parentFile.mkdirs(); mkdirs() }
+            val repoDir = File(tempDir, "github.com/testorg/to-delete/.git").apply { parentFile.mkdirs(); mkdirs() }
             val service = WorkspaceService(projectsRoot = tempDir)
 
             val rootCommand = RootCommand().subcommands(
                 ResetCommand(service)
             )
 
-            rootCommand.parse(listOf("reset", "github.com/user/to-delete", "--yes"))
-            assertTrue(!File(tempDir, "github.com/user/to-delete").exists())
+            // Test reset with short repo name
+            rootCommand.parse(listOf("reset", "testorg/to-delete", "--yes"))
+            assertTrue(!File(tempDir, "github.com/testorg/to-delete").exists(), "Repository directory should be removed")
+            assertTrue(!File(tempDir, "github.com/testorg").exists(), "Empty org parent directory should be pruned")
+            assertTrue(!File(tempDir, "github.com").exists(), "Empty host parent directory should be pruned")
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `dev reset retains parent directories when sibling repositories exist`() {
+        val tempDir = File.createTempFile("devws_reset_sibling_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+
+        try {
+            File(tempDir, "github.com/org1/repo1/.git").apply { parentFile.mkdirs(); mkdirs() }
+            File(tempDir, "github.com/org1/repo2/.git").apply { parentFile.mkdirs(); mkdirs() }
+            val service = WorkspaceService(projectsRoot = tempDir)
+
+            val rootCommand = RootCommand().subcommands(
+                ResetCommand(service)
+            )
+
+            rootCommand.parse(listOf("reset", "github.com/org1/repo1", "--yes"))
+            assertTrue(!File(tempDir, "github.com/org1/repo1").exists(), "repo1 should be removed")
+            assertTrue(File(tempDir, "github.com/org1/repo2").exists(), "repo2 should remain")
+            assertTrue(File(tempDir, "github.com/org1").exists(), "org1 should remain because repo2 exists")
         } finally {
             tempDir.deleteRecursively()
         }
