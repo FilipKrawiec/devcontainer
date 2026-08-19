@@ -37,6 +37,7 @@ object GitHubAuthTokenResolver {
 class GitHubGraphQLClient(
     private val httpClient: HttpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(10))
+        .followRedirects(HttpClient.Redirect.NORMAL)
         .build(),
     private val tokenProvider: () -> String = { GitHubAuthTokenResolver.resolveToken() },
     private val endpoint: URI = URI.create("https://api.github.com/graphql")

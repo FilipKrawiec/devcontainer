@@ -7,14 +7,21 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
+import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.long
 import devcli.forge.app.CreateBranchUseCase
+import devcli.forge.app.GetJobTraceUseCase
+import devcli.forge.app.GetPipelineRunUseCase
+import devcli.forge.app.ListPipelineRunsUseCase
 import devcli.forge.app.MergePullRequestUseCase
 import devcli.forge.app.OpenPullRequestUseCase
 import devcli.forge.app.ReviewPullRequestUseCase
 import devcli.forge.domain.BranchName
 import devcli.forge.domain.CommentBody
 import devcli.forge.domain.Forges
+import devcli.forge.domain.JobId
 import devcli.forge.domain.MergeStrategy
+import devcli.forge.domain.PipelineRunId
 import devcli.forge.domain.PrBody
 import devcli.forge.domain.PrTitle
 import devcli.forge.domain.PullRequestNumber
@@ -32,7 +39,8 @@ class ForgeCommand(
     init {
         subcommands(
             BranchGroup(forges),
-            PrGroup(forges)
+            PrGroup(forges),
+            PipelineGroup(forges)
         )
     }
 
@@ -141,9 +149,7 @@ class ForgeCommand(
                     if (json) {
                         echo(ForgeJsonFormat.toJson(PullRequestDto.fromDomain(outcome.pullRequest)))
                     } else {
-                        echo("✔ Opened PR #${outcome.pullRequest.number.value}: ${outcome.pullRequest.title.value}")
-                        echo("  URL: ${outcome.pullRequest.url}")
-                        echo("  ${outcome.pullRequest.head.value} -> ${outcome.pullRequest.base.value}")
+                        echo("✔ Created PR #${outcome.pullRequest.number.value}: ${outcome.pullRequest.url}")
                     }
                 }
                 is OpenPullRequestUseCase.Outcome.Failure -> {
@@ -225,6 +231,169 @@ class ForgeCommand(
                         echo(ForgeJsonFormat.toJson(ForgeErrorDto(outcome.message)))
                     } else {
                         echo("✘ Failed to merge PR: ${outcome.message}", err = true)
+                    }
+                    throw com.github.ajalt.clikt.core.ProgramResult(1)
+                }
+            }
+        }
+    }
+
+    private class PipelineGroup(forges: Forges) : CliktCommand(
+        name = "pipeline",
+        help = "Inspect CI/CD pipeline runs, jobs, and traces",
+        invokeWithoutSubcommand = true
+    ) {
+        init {
+            subcommands(
+                ListPipelineCommand(forges),
+                ViewPipelineCommand(forges),
+                TracePipelineCommand(forges)
+            )
+        }
+
+        override fun run() {
+            if (currentContext.invokedSubcommand == null) {
+                echo(getFormattedHelp())
+            }
+        }
+    }
+
+    private class ListPipelineCommand(private val forges: Forges) : CliktCommand(
+        name = "list",
+        help = "List recent CI/CD pipeline runs"
+    ) {
+        private val branch by option("--branch", "-b", help = "Filter by branch")
+        private val status by option("--status", "-s", help = "Filter by status (queued, in_progress, success, failure, etc.)")
+        private val limit by option("--limit", "-l", help = "Maximum runs to list (default 10)").int().default(10)
+        private val repo by option("--repo", "-r", help = "Target repository (owner/repo)")
+        private val json by option("--json", help = "Emit output in JSON format").flag(default = false)
+
+        override fun run() {
+            val useCase = ListPipelineRunsUseCase(forges)
+            val slug = RepositorySlug.of(resolveCurrentRepo(repo).value)
+            val branchName = branch?.let { BranchName.of(it) }
+
+            val outcome = useCase.execute(slug, branchName, status, limit)
+            when (outcome) {
+                is ListPipelineRunsUseCase.Outcome.Success -> {
+                    val dtos = outcome.runs.map { PipelineRunDto.fromDomain(it) }
+                    if (json) {
+                        echo(ForgeJsonFormat.toJson(dtos))
+                    } else {
+                        if (dtos.isEmpty()) {
+                            echo("No pipeline runs found.")
+                        } else {
+                            echo(String.format("%-12s %-25s %-15s %-12s %-10s %s", "ID", "WORKFLOW", "BRANCH", "STATUS", "EVENT", "CREATED"))
+                            echo("-".repeat(85))
+                            dtos.forEach { r ->
+                                echo(String.format("%-12s %-25s %-15s %-12s %-10s %s", r.id, r.workflow.take(24), r.branch.take(14), r.status, r.event, r.createdAt))
+                            }
+                        }
+                    }
+                }
+                is ListPipelineRunsUseCase.Outcome.Failure -> {
+                    if (json) {
+                        echo(ForgeJsonFormat.toJson(ForgeErrorDto(outcome.message)))
+                    } else {
+                        echo("✘ Failed to list pipeline runs: ${outcome.message}", err = true)
+                    }
+                    throw com.github.ajalt.clikt.core.ProgramResult(1)
+                }
+            }
+        }
+    }
+
+    private class ViewPipelineCommand(private val forges: Forges) : CliktCommand(
+        name = "view",
+        help = "Inspect details and jobs of a pipeline run"
+    ) {
+        private val id by argument(help = "Pipeline Run ID")
+        private val repo by option("--repo", "-r", help = "Target repository (owner/repo)")
+        private val json by option("--json", help = "Emit output in JSON format").flag(default = false)
+
+        override fun run() {
+            val useCase = GetPipelineRunUseCase(forges)
+            val slug = RepositorySlug.of(resolveCurrentRepo(repo).value)
+            val runId = PipelineRunId.of(id)
+
+            val outcome = useCase.execute(slug, runId)
+            when (outcome) {
+                is GetPipelineRunUseCase.Outcome.Success -> {
+                    val dto = PipelineRunDto.fromDomain(outcome.run)
+                    if (json) {
+                        echo(ForgeJsonFormat.toJson(dto))
+                    } else {
+                        echo("Pipeline Run #${dto.id} (${dto.workflow})")
+                        echo("Status:    ${dto.status.uppercase()}${dto.conclusion?.let { " ($it)" } ?: ""}")
+                        echo("Branch:    ${dto.branch} (event: ${dto.event}, commit: ${dto.commitSha.take(8)})")
+                        echo("Created:   ${dto.createdAt}")
+                        echo("URL:       ${dto.url}")
+                        if (dto.jobs.isNotEmpty()) {
+                            echo("\nJobs (${dto.jobs.size}):")
+                            dto.jobs.forEach { job ->
+                                val conclusionText = job.conclusion?.let { " ($it)" } ?: ""
+                                echo("  - [${job.id}] ${job.name} - ${job.status}$conclusionText")
+                                job.steps.forEach { step ->
+                                    val stepConclusion = step.conclusion?.let { " ($it)" } ?: ""
+                                    echo("      Step ${step.number}: ${step.name} [${step.status}$stepConclusion]")
+                                }
+                            }
+                        }
+                    }
+                }
+                is GetPipelineRunUseCase.Outcome.Failure -> {
+                    if (json) {
+                        echo(ForgeJsonFormat.toJson(ForgeErrorDto(outcome.message)))
+                    } else {
+                        echo("✘ Failed to view pipeline run: ${outcome.message}", err = true)
+                    }
+                    throw com.github.ajalt.clikt.core.ProgramResult(1)
+                }
+            }
+        }
+    }
+
+    private class TracePipelineCommand(private val forges: Forges) : CliktCommand(
+        name = "trace",
+        help = "Retrieve and filter execution logs for a job"
+    ) {
+        private val job by option("--job", "-j", help = "Job ID").long().required()
+        private val grep by option("--grep", "-g", help = "Search pattern / regex to filter log lines")
+        private val failedOnly by option("--failed-only", "-f", help = "Filter for error/failure lines only").flag(default = false)
+        private val repo by option("--repo", "-r", help = "Target repository (owner/repo)")
+        private val json by option("--json", help = "Emit output in JSON format").flag(default = false)
+
+        override fun run() {
+            val useCase = GetJobTraceUseCase(forges)
+            val slug = RepositorySlug.of(resolveCurrentRepo(repo).value)
+            val jobId = JobId.of(job)
+
+            val outcome = useCase.execute(slug, jobId, grep, failedOnly)
+            when (outcome) {
+                is GetJobTraceUseCase.Outcome.Success -> {
+                    val allLines = outcome.trace.logContent.lines()
+                    val matched = outcome.matchedLines
+                    val dto = JobTraceDto(
+                        jobId = jobId.value,
+                        totalLines = allLines.size,
+                        matchedLines = matched.size,
+                        lines = matched
+                    )
+
+                    if (json) {
+                        echo(ForgeJsonFormat.toJson(dto))
+                    } else {
+                        if (grep != null || failedOnly) {
+                            echo("--- Matching log trace lines (${matched.size}/${allLines.size}) for job #${jobId.value} ---")
+                        }
+                        matched.forEach { line -> echo(line) }
+                    }
+                }
+                is GetJobTraceUseCase.Outcome.Failure -> {
+                    if (json) {
+                        echo(ForgeJsonFormat.toJson(ForgeErrorDto(outcome.message)))
+                    } else {
+                        echo("✘ Failed to get job trace: ${outcome.message}", err = true)
                     }
                     throw com.github.ajalt.clikt.core.ProgramResult(1)
                 }
