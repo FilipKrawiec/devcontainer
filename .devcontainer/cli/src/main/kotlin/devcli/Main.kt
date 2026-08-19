@@ -13,28 +13,30 @@ import devcli.issuetracker.api.IssueTrackerCommand
 import devcli.issuetracker.infra.GitHubGraphQLWorkItems
 import devcli.service.WorkspaceService
 
+fun createDevCli(
+    service: WorkspaceService = WorkspaceService(),
+    workItems: devcli.issuetracker.domain.WorkItems,
+    forges: devcli.forge.domain.Forges
+) = RootCommand().subcommands(
+    DoctorCommand(),
+    ProjectsCommand().subcommands(
+        GetCommand(service),
+        ListCommand(service),
+        ResetCommand(service)
+    ),
+    IssueTrackerCommand(workItems),
+    ForgeCommand(forges),
+    GetCommand(service),
+    ListCommand(service),
+    ResetCommand(service)
+)
+
 fun main(args: Array<String>) {
     val service = WorkspaceService()
     val workItems = GitHubGraphQLWorkItems()
     val forges = GitHubHttpForges()
 
-    // Structured projects subcommands
-    val projectsCommand = ProjectsCommand().subcommands(
-        GetCommand(service),
-        ListCommand(service),
-        ResetCommand(service)
-    )
-
-    // Root command with both structured groups and top-level ergonomic aliases
-    val rootCommand = RootCommand().subcommands(
-        DoctorCommand(),
-        projectsCommand,
-        IssueTrackerCommand(workItems),
-        ForgeCommand(forges),
-        GetCommand(service),
-        ListCommand(service),
-        ResetCommand(service)
-    )
-
+    val rootCommand = createDevCli(service, workItems, forges)
     rootCommand.main(args)
 }
+

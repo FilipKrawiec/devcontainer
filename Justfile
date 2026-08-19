@@ -75,7 +75,7 @@ preview-logs:
     docker logs master_dev_preview_sidecar -f
 
 # -----------------------------------------------------------------------------
-# SDLC Plugin Management
+# SDLC Plugin & Multi-Harness Management
 # -----------------------------------------------------------------------------
 
 # Install SDLC plugin into local Antigravity IDE configuration
@@ -93,7 +93,7 @@ install-plugins:
     done
     echo "Installed SDLC plugin into ${target_dir}"
 
-# Symlink SDLC plugin into local Antigravity IDE configuration (dev mode)
+# Symlink SDLC and core plugins into local Antigravity IDE configuration (dev mode)
 link-plugins:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -107,6 +107,42 @@ link-plugins:
       rm -rf "${target_dir}/${pkg}"
       ln -s "${repo_root}/${dir}" "${target_dir}/${pkg}"
     done
-    echo "Linked SDLC plugin into ${target_dir}"
+    skills_root="/projects/github.com/FilipKrawiec/skills"
+    if [ -d "${skills_root}/plugins/common" ]; then
+      for dir in "${skills_root}/plugins/common/"*; do
+        [ -d "$dir" ] || continue
+        pkg="filipkrawiec-$(basename "$dir")"
+        rm -rf "${target_dir}/${pkg}"
+        ln -s "$dir" "${target_dir}/${pkg}"
+      done
+    fi
+    if [ -d "${skills_root}/plugins/agy/core" ]; then
+      rm -rf "${target_dir}/filipkrawiec-agy-core"
+      ln -s "${skills_root}/plugins/agy/core" "${target_dir}/filipkrawiec-agy-core"
+    fi
+    echo "Linked workspace plugins into ${target_dir}"
+
+# Refresh local plugin installations across harnesses (Antigravity, Codex, Claude)
+refresh-plugins: install-plugins
+    #!/usr/bin/env bash
+    if command -v codex >/dev/null 2>&1; then
+      for dir in plugins/*; do
+        [ -d "$dir" ] || continue
+        pkg="filipkrawiec-$(basename "$dir")"
+        codex plugin remove "${pkg}@filipkrawiec" >/dev/null 2>&1 || true
+        codex plugin add "${pkg}@filipkrawiec" >/dev/null 2>&1 || true
+      done
+    fi
+    if command -v claude >/dev/null 2>&1; then
+      for dir in plugins/*; do
+        [ -d "$dir" ] || continue
+        pkg="filipkrawiec-$(basename "$dir")"
+        claude plugin remove "${pkg}@filipkrawiec" >/dev/null 2>&1 || true
+        claude plugin add "${pkg}@filipkrawiec" >/dev/null 2>&1 || true
+        claude plugin update "${pkg}@filipkrawiec" >/dev/null 2>&1 || true
+      done
+    fi
+    echo "Refreshed plugin installations across all available agent harnesses."
+
 
 
