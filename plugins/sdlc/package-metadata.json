@@ -1,14 +1,14 @@
 {
   "name": "filipkrawiec-sdlc",
-  "version": "9.5.0",
+  "version": "9.6.0",
   "description": "Provider-neutral SDLC skills for delivery orchestration, backlog definition, monorepo scaffolding, and continuous improvement.",
   "author": {
     "name": "Filip Krawiec",
     "email": "contact@filipkrawiec.com",
     "url": "https://github.com/FilipKrawiec"
   },
-  "repository": "https://github.com/FilipKrawiec/skills",
-  "homepage": "https://github.com/FilipKrawiec/skills",
+  "repository": "https://github.com/FilipKrawiec/devcontainer",
+  "homepage": "https://github.com/FilipKrawiec/devcontainer",
   "license": "UNLICENSED",
   "keywords": [
     "skills",

@@ -6,3 +6,7 @@ tools/
 .devcontainer/cli/.kotlin/
 .idea/
 .claude/
+__pycache__/
+*.py[cod]
+*$py.class
+

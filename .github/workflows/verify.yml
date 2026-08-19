@@ -1,0 +1,45 @@
+name: Verify repository
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Detect secrets with Gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.11"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run Script Unit Tests
+        run: python3 -m unittest discover -s scripts/tests
+
+      - name: Run DevCLI Tests
+        run: cd .devcontainer/cli && gradle test
+
+      - name: Validate Plugin & Skill Definitions
+        run: python3 scripts/validate-plugin-definitions.py
+
+      - name: Check Project Verifier Status
+        run: python3 scripts/project-verify.py status

@@ -1,9 +1,35 @@
 # Justfile for Master Dev Workspace
 # https://github.com/casey/just
 
-# Default recipe: list available commands
-default:
-    @just --list
+default: verify
+
+# -----------------------------------------------------------------------------
+# Verification & Lifecycle
+# -----------------------------------------------------------------------------
+
+# Run unit tests across script tools and Kotlin dev-cli
+unit: test-cli
+    python3 -m unittest discover -s scripts/tests
+
+# Validate plugin definitions, skills, agent personas, and package manifests
+verify: unit
+    python3 scripts/validate-plugin-definitions.py
+
+# Synchronize all host plugin manifests from canonical package metadata
+sync-manifests:
+    python3 scripts/validate-plugin-definitions.py --sync
+
+# Display verifier status and detected lifecycle tasks
+status:
+    python3 scripts/project-verify.py status
+
+# Complete local contributor setup (configures git hooks and links plugins)
+setup: setup-hooks link-plugins
+
+# Install/configure repository git hooks
+setup-hooks:
+    git config core.hooksPath scripts/git-hooks
+    @echo "Configured git core.hooksPath to scripts/git-hooks"
 
 # -----------------------------------------------------------------------------
 # Toolchain Maintenance
@@ -143,6 +169,3 @@ refresh-plugins: install-plugins
       done
     fi
     echo "Refreshed plugin installations across all available agent harnesses."
-
-
-

@@ -5,6 +5,23 @@ active_skills:
   - specify
   - improve
   - scaffold-monorepo
+
+build_tools:
+  just:
+    build_script: Justfile
+    lifecycle_tasks:
+      unit: just unit
+      verify: just verify
+  python:
+    build_script: scripts/validate-plugin-definitions.py
+    lifecycle_tasks:
+      unit: python3 -m unittest discover -s scripts/tests
+      verify: python3 scripts/validate-plugin-definitions.py
+  gradle:
+    build_script: .devcontainer/cli/build.gradle.kts
+    lifecycle_tasks:
+      build: cd .devcontainer/cli && gradle installDist
+      unit: cd .devcontainer/cli && gradle test
 ---
 
 # AGENTS
