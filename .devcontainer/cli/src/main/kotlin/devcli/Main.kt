@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.subcommands
 import devcli.commands.DoctorCommand
 import devcli.commands.RootCommand
 import devcli.commands.projects.GetCommand
+import devcli.commands.projects.InitCommand
 import devcli.commands.projects.ListCommand
 import devcli.commands.projects.ProjectsCommand
 import devcli.commands.projects.ResetCommand
@@ -22,13 +23,15 @@ fun createDevCli(
     ProjectsCommand().subcommands(
         GetCommand(service),
         ListCommand(service),
-        ResetCommand(service)
+        ResetCommand(service),
+        InitCommand(service)
     ),
     IssueTrackerCommand(workItems),
     ForgeCommand(forges),
     GetCommand(service),
     ListCommand(service),
-    ResetCommand(service)
+    ResetCommand(service),
+    InitCommand(service)
 )
 
 fun main(args: Array<String>) {

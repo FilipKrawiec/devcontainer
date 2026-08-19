@@ -4,7 +4,7 @@ active_skills:
   - define
   - specify
   - improve
-  - scaffold-monorepo
+  - init-project
 
 build_tools:
   just:

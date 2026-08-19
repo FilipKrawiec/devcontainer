@@ -108,14 +108,16 @@ class ProjectsCommandTest {
         val projectsCommand = ProjectsCommand().subcommands(
             GetCommand(),
             ListCommand(),
-            ResetCommand()
+            ResetCommand(),
+            InitCommand()
         )
         val rootCommand = RootCommand().subcommands(
             DoctorCommand(),
             projectsCommand,
             GetCommand(),
             ListCommand(),
-            ResetCommand()
+            ResetCommand(),
+            InitCommand()
         )
 
         val rootHelpText = rootCommand.getFormattedHelp()
@@ -124,11 +126,13 @@ class ProjectsCommandTest {
         assertTrue(rootHelpText?.contains("projects") == true)
         assertTrue(rootHelpText?.contains("list") == true)
         assertTrue(rootHelpText?.contains("get") == true)
+        assertTrue(rootHelpText?.contains("init") == true)
         assertTrue(rootHelpText?.contains("reset") == true)
 
         val projectsHelpText = projectsCommand.getFormattedHelp()
         assertTrue(projectsHelpText?.contains("get") == true)
         assertTrue(projectsHelpText?.contains("list") == true)
+        assertTrue(projectsHelpText?.contains("init") == true)
         assertTrue(projectsHelpText?.contains("reset") == true)
     }
 
@@ -165,4 +169,70 @@ class ProjectsCommandTest {
             tempDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun `dev projects init scaffolds clean monorepo with files and initial commit`() {
+        val tempDir = File.createTempFile("devws_init_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+
+        try {
+            val service = WorkspaceService(projectsRoot = tempDir)
+            val rootCommand = RootCommand().subcommands(
+                ProjectsCommand().subcommands(
+                    InitCommand(service)
+                )
+            )
+
+            rootCommand.parse(listOf("projects", "init", "user/my-sample-repo", "-d", "My custom description"))
+
+            val repoDir = File(tempDir, "github.com/user/my-sample-repo")
+            assertTrue(repoDir.exists(), "Repository directory should exist")
+            assertTrue(File(repoDir, "components/.gitkeep").exists(), "components/.gitkeep should exist")
+            assertTrue(File(repoDir, "deploy/.gitkeep").exists(), "deploy/.gitkeep should exist")
+            assertTrue(File(repoDir, ".gitignore").exists(), ".gitignore should exist")
+            assertTrue(File(repoDir, "justfile").exists(), "justfile should exist")
+            assertTrue(File(repoDir, "AGENTS.md").exists(), "AGENTS.md should exist")
+            assertTrue(File(repoDir, "README.md").exists(), "README.md should exist")
+
+            val readmeText = File(repoDir, "README.md").readText()
+            assertTrue(readmeText.contains("# my-sample-repo"))
+            assertTrue(readmeText.contains("My custom description"))
+
+            val agentsText = File(repoDir, "AGENTS.md").readText()
+            assertTrue(agentsText.contains("active_skills:"))
+            assertTrue(agentsText.contains("Repository Rules"))
+
+            // Verify Git status
+            assertTrue(File(repoDir, ".git").exists(), "Git repo should be initialized")
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `top-level dev init alias executes cleanly`() {
+        val tempDir = File.createTempFile("devws_init_alias_test_", "").apply {
+            delete()
+            mkdirs()
+        }
+
+        try {
+            val service = WorkspaceService(projectsRoot = tempDir)
+            val rootCommand = RootCommand().subcommands(
+                InitCommand(service)
+            )
+
+            rootCommand.parse(listOf("init", "github.com/org/repo-alias", "--no-commit"))
+
+            val repoDir = File(tempDir, "github.com/org/repo-alias")
+            assertTrue(repoDir.exists(), "Repository directory should exist")
+            assertTrue(File(repoDir, "README.md").exists(), "README.md should exist")
+            assertTrue(File(repoDir, ".git").exists(), "Git repo should be initialized")
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
 }
+

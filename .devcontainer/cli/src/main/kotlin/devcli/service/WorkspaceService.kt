@@ -27,6 +27,13 @@ data class WorkspaceDetail(
     val isDirty: Boolean = false
 )
 
+data class InitSummary(
+    val relativePath: String,
+    val targetDirectory: String,
+    val gitInitialized: Boolean,
+    val commitCreated: Boolean
+)
+
 class WorkspaceService(
     private val projectsRoot: File = File("/projects")
 ) {
@@ -351,4 +358,220 @@ class WorkspaceService(
             Result.failure(e)
         }
     }
+
+    fun initWorkspace(
+        repoRef: String,
+        description: String? = null,
+        initGit: Boolean = true,
+        commit: Boolean = true
+    ): Result<InitSummary> {
+        return try {
+            ensureProjectsRootWritable()
+            val relativePath = try {
+                WorkspaceRef.fromRemote(repoRef).relativePath
+            } catch (_: Exception) {
+                repoRef.trim().trim('/')
+            }
+
+            val targetDir = resolveWorkspacePath(relativePath)
+            if (targetDir.exists() && File(targetDir, ".git").exists()) {
+                return Result.failure(IllegalStateException("Repository already exists at ${targetDir.path}"))
+            }
+            if (targetDir.exists() && targetDir.listFiles()?.isNotEmpty() == true) {
+                return Result.failure(IllegalStateException("Target directory ${targetDir.path} is not empty"))
+            }
+
+            if (!targetDir.exists() && !targetDir.mkdirs()) {
+                return Result.failure(IllegalStateException("Failed to create directory ${targetDir.path}"))
+            }
+
+            // Create baseline directory structure
+            val componentsDir = File(targetDir, "components")
+            componentsDir.mkdirs()
+            File(componentsDir, ".gitkeep").createNewFile()
+
+            val deployDir = File(targetDir, "deploy")
+            deployDir.mkdirs()
+            File(deployDir, ".gitkeep").createNewFile()
+
+            val projectName = relativePath.substringAfterLast('/')
+
+            // Generate .gitignore
+            val gitignoreContent = """
+                # OS & Editor
+                .DS_Store
+                Thumbs.db
+                .idea/
+                .vscode/
+                *.swp
+                *~
+
+                # Logs & Temp
+                *.log
+                tmp/
+                temp/
+
+                # Build & Environment
+                .env
+                .env.local
+                dist/
+                build/
+                out/
+            """.trimIndent()
+            File(targetDir, ".gitignore").writeText(gitignoreContent + "\n")
+
+            // Generate justfile
+            val justfileContent = """
+                set dotenv-load := true
+
+                # List available recipes
+                default:
+                    @just --list
+
+                # Run unit tests across all components
+                unit comp="":
+                    #!/usr/bin/env bash
+                    if [ -n "{{comp}}" ]; then \
+                        if [ -f "components/{{comp}}/justfile" ]; then \
+                            (cd "components/{{comp}}" && just unit); \
+                        fi; \
+                    else \
+                        for d in components/*/; do \
+                            [ -d "${'$'}d" ] || continue; \
+                            if [ -f "${'$'}d/justfile" ]; then \
+                                echo "Running unit tests in ${'$'}d..."; \
+                                (cd "${'$'}d" && just unit); \
+                            fi; \
+                        done; \
+                    fi
+
+                # Full Verification Gate
+                verify:
+                    @just unit
+                    @echo "=== Verification PASS ==="
+            """.trimIndent()
+            File(targetDir, "justfile").writeText(justfileContent + "\n")
+
+            // Generate AGENTS.md
+            val agentsContent = """
+                ---
+                active_skills:
+                  - ddd
+                  - hexagonal-architecture
+                  - tdd
+                  - vcs
+                  - deliver
+
+                build_tools:
+                  just:
+                    build_script: justfile
+                    lifecycle_tasks:
+                      unit: just unit
+                      verify: just verify
+                ---
+
+                # Repository Rules
+
+                ## Architecture Invariants
+                - Application services and domains live inside `components/<name>/`.
+                - Always run `just verify` before publishing a task for review.
+            """.trimIndent()
+            File(targetDir, "AGENTS.md").writeText(agentsContent + "\n")
+
+            // Generate README.md
+            val desc = if (!description.isNullOrBlank()) description.trim() else "Monorepo workspace for $projectName."
+            val readmeContent = """
+                # $projectName
+
+                $desc
+
+                ## Structure
+
+                - `components/` - Application components, domain modules, and services.
+                - `deploy/` - Deployment configurations and environment manifests.
+                - `justfile` - Task runner commands.
+                - `AGENTS.md` - AI assistant guidelines and rules.
+
+                ## Quick Start
+
+                Ensure [`just`](https://github.com/casey/just) is installed.
+
+                ```bash
+                just --list   # List all available recipes
+                just verify   # Run full project verification
+                ```
+            """.trimIndent()
+            File(targetDir, "README.md").writeText(readmeContent + "\n")
+
+            var gitInitSuccess = false
+            var commitSuccess = false
+
+            if (initGit) {
+                val initProcess = ProcessBuilder("git", "init", "-b", "main")
+                    .directory(targetDir)
+                    .start()
+                val initExit = initProcess.waitFor()
+                if (initExit == 0) {
+                    gitInitSuccess = true
+                } else {
+                    // Fallback to git init without -b main
+                    val fallbackProcess = ProcessBuilder("git", "init")
+                        .directory(targetDir)
+                        .start()
+                    if (fallbackProcess.waitFor() == 0) {
+                        gitInitSuccess = true
+                    }
+                }
+
+                if (gitInitSuccess && commit) {
+                    ProcessBuilder("git", "add", ".")
+                        .directory(targetDir)
+                        .start()
+                        .waitFor()
+
+                    // Check if git user name/email are configured
+                    val hasUserName = try {
+                        val checkProcess = ProcessBuilder("git", "config", "user.name")
+                            .directory(targetDir)
+                            .start()
+                        val out = checkProcess.inputStream.bufferedReader().readText().trim()
+                        checkProcess.waitFor() == 0 && out.isNotBlank()
+                    } catch (_: Exception) {
+                        false
+                    }
+
+                    val commitCmd = if (hasUserName) {
+                        listOf("git", "commit", "-m", "feat: initial project scaffold")
+                    } else {
+                        listOf(
+                            "git",
+                            "-c", "user.name=dev-cli",
+                            "-c", "user.email=dev-cli@workspace.local",
+                            "commit",
+                            "-m", "feat: initial project scaffold"
+                        )
+                    }
+
+                    val commitProcess = ProcessBuilder(commitCmd)
+                        .directory(targetDir)
+                        .start()
+                    if (commitProcess.waitFor() == 0) {
+                        commitSuccess = true
+                    }
+                }
+            }
+
+            Result.success(
+                InitSummary(
+                    relativePath = relativePath,
+                    targetDirectory = targetDir.path,
+                    gitInitialized = gitInitSuccess,
+                    commitCreated = commitSuccess
+                )
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+
