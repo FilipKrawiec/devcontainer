@@ -9,6 +9,7 @@ ARG GRADLE_VERSION=9.7.0
 ARG RUST_VERSION=1.97.1
 ARG FLUTTER_VERSION=3.47.0
 ARG GRAALVM_VERSION=25.0.2
+ARG ANDROID_CMDLINE_TOOLS_VERSION=13114758_latest
 
 # -----------------------------------------------------------------------------
 # Stage: Fetch & Unpack Node.js
@@ -112,8 +113,23 @@ ARG FLUTTER_VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates curl unzip \
     && git clone --depth 1 --branch "${FLUTTER_VERSION}" https://github.com/flutter/flutter.git /target/opt/flutter \
     && /target/opt/flutter/bin/flutter config --no-analytics \
-    && /target/opt/flutter/bin/flutter precache --linux --web \
+    && /target/opt/flutter/bin/flutter precache --linux --web --android \
     && chmod -R a+rwX /target/opt/flutter
+
+# -----------------------------------------------------------------------------
+# Stage: Fetch & Configure Android SDK
+# -----------------------------------------------------------------------------
+FROM ${BASE_IMAGE} AS fetch-android-sdk
+ARG ANDROID_CMDLINE_TOOLS_VERSION
+RUN apt-get update && apt-get install -y --no-install-recommends curl unzip openjdk-17-jdk-headless ca-certificates \
+    && mkdir -p /target/usr/lib/android-sdk/cmdline-tools \
+    && curl -fsSL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS_VERSION}.zip" -o /tmp/cmdline-tools.zip \
+    && unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools \
+    && mv /tmp/cmdline-tools/cmdline-tools /target/usr/lib/android-sdk/cmdline-tools/latest \
+    && rm -rf /tmp/cmdline-tools* \
+    && JDK_PATH="$(find /usr/lib/jvm -maxdepth 1 -name 'java-17-openjdk*' | head -n 1)" \
+    && yes | JAVA_HOME="${JDK_PATH}" /target/usr/lib/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/target/usr/lib/android-sdk --licenses \
+    && JAVA_HOME="${JDK_PATH}" /target/usr/lib/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/target/usr/lib/android-sdk "platforms;android-36" "build-tools;36.0.0"
 
 # -----------------------------------------------------------------------------
 # Stage: Build Kotlin Dev CLI (`dev`)
@@ -151,32 +167,62 @@ ENV RUSTUP_HOME=/opt/rustup
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 ENV FLUTTER_HOME=/opt/flutter
 ENV FLUTTER_SUPPRESS_ANALYTICS=true
+ENV ANDROID_HOME=/usr/lib/android-sdk
+ENV ANDROID_SDK_ROOT=/usr/lib/android-sdk
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 ENV CHROME_EXECUTABLE=/usr/bin/chromium
-ENV PATH=/home/vscode/.local/share/pnpm:/home/vscode/.pub-cache/bin:/opt/graalvm/bin:/home/vscode/.local/bin:/opt/cargo/bin:/usr/local/go/bin:/opt/flutter/bin:${PATH}
+ENV PATH=/home/vscode/.local/share/pnpm:/home/vscode/.pub-cache/bin:/opt/graalvm/bin:/home/vscode/.local/bin:/opt/cargo/bin:/usr/local/go/bin:/opt/flutter/bin:/usr/lib/android-sdk/cmdline-tools/latest/bin:/usr/lib/android-sdk/platform-tools:${PATH}
 
 # 1. Base OS Packages & System Repositories (rarely invalidated)
-RUN apt-get update \
+RUN ARCH="$(dpkg --print-architecture)" \
+    && if [ "${ARCH}" = "arm64" ]; then dpkg --add-architecture amd64; fi \
+    && apt-get update \
     && export DEBIAN_FRONTEND=noninteractive \
     && apt-get install -y --no-install-recommends \
+        adb \
         build-essential \
         ca-certificates \
-        chromium \
         clang \
         cmake \
         curl \
         file \
+        fonts-liberation \
+        fonts-noto-color-emoji \
         git-lfs \
         git \
         gpg \
         jq \
         just \
+        libasound2t64 \
+        libatk-bridge2.0-0 \
+        libatk1.0-0 \
+        libcairo2 \
+        libcups2 \
+        libdbus-1-3 \
+        libdrm2 \
+        libgbm1 \
+        libglib2.0-0 \
         libglu1-mesa \
         libgtk-3-dev \
         liblzma-dev \
+        libnspr4 \
+        libnss3 \
+        libpango-1.0-0 \
         libstdc++6 \
+        libx11-6 \
+        libxcb1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxrandr2 \
+        libxrender1 \
+        libxshmfence1 \
+        libxtst6 \
         make \
         mesa-utils \
         ninja-build \
+        openjdk-17-jdk-headless \
         openssh-client \
         pkg-config \
         python3 \
@@ -184,12 +230,16 @@ RUN apt-get update \
         python3-venv \
         ripgrep \
         unzip \
+        xvfb \
         xz-utils \
         zip \
         zsh \
         zsh-autosuggestions \
         zsh-syntax-highlighting \
         zstd \
+    && if [ "${ARCH}" = "arm64" ]; then apt-get install -y --no-install-recommends libc6:amd64 libstdc++6:amd64 zlib1g:amd64; fi \
+    && JDK_DIR="$(find /usr/lib/jvm -maxdepth 1 -name 'java-17-openjdk*' | head -n 1)" \
+    && ln -s "${JDK_DIR}" /usr/lib/jvm/java-17 \
     # Install GitHub CLI (gh)
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -222,22 +272,31 @@ COPY --from=fetch-python /target/opt/uv /opt/uv
 COPY --from=fetch-rust /target/opt/cargo /opt/cargo
 COPY --from=fetch-rust /target/opt/rustup /opt/rustup
 COPY --from=fetch-flutter /target/opt/flutter /opt/flutter
+COPY --from=fetch-android-sdk /target/usr/lib/android-sdk /usr/lib/android-sdk
 
-# 4. Install Global CLI Tools (pnpm, Codex, Firebase Tools, Claude, AGY, Ollama, Gradle symlink)
+# 4. Install Global CLI Tools, Playwright, and Chromium Wrapper
 RUN ln -sf "/opt/gradle-${GRADLE_VERSION}/bin/gradle" /usr/local/bin/gradle \
-    # Install pnpm, OpenAI Codex CLI, and Firebase Tools
-    && npm install -g pnpm @openai/codex firebase-tools \
-    # Install Claude Code CLI via official install script
-    && curl -fsSL https://claude.ai/install.sh | bash \
+    && npm install -g pnpm @openai/codex firebase-tools @playwright/test
+
+RUN PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright npx -y playwright install --with-deps chromium \
+    && chmod -R a+rx /opt/ms-playwright
+
+COPY chromium-wrapper.sh /usr/local/bin/chromium
+RUN chmod +x /usr/local/bin/chromium \
+    && ln -sf /usr/local/bin/chromium /usr/bin/chromium
+
+RUN /opt/flutter/bin/flutter config --no-analytics \
+    && /opt/flutter/bin/flutter config --android-sdk /usr/lib/android-sdk \
+    && /opt/flutter/bin/flutter config --jdk-dir /usr/lib/jvm/java-17
+
+RUN curl -fsSL https://claude.ai/install.sh | bash \
     && (cp /root/.local/bin/claude /usr/local/bin/claude 2>/dev/null || true) \
-    # Install Google Antigravity CLI (agy) into /usr/local/bin
     && curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --dir /usr/local/bin \
     && (cp /root/.local/bin/agy /usr/local/bin/agy 2>/dev/null || true) \
     && chmod +x /usr/local/bin/claude /usr/local/bin/agy 2>/dev/null || true \
-    # Install official Ollama Linux CLI
     && curl -fsSL https://ollama.com/install.sh | sh
 
 # 5. Copy & Link Compiled Kotlin Dev CLI (only invalidated when CLI source changes)
 COPY --from=builder-cli /opt/dev-cli /opt/dev-cli
 RUN ln -sf /opt/dev-cli/build/install/dev-cli/bin/dev-cli /usr/local/bin/dev \
-    && chown -R vscode:vscode /projects /home/vscode /opt/dev-cli
+    && chown -R vscode:vscode /projects /home/vscode /opt/dev-cli /usr/lib/android-sdk /opt/ms-playwright

@@ -12,7 +12,16 @@
         "serverpod.serverpod"
       ],
       "settings": {
-        "dart.flutterSdkPath": "/opt/flutter"
+        "dart.flutterSdkPath": "/opt/flutter",
+        "dart.flutterHotReloadOnSave": "all",
+        "dart.hotReloadOnSave": "all",
+        "dart.previewHotReloadOnSaveWatcher": true,
+        "dart.flutterRunAdditionalArgs": [
+          "--dds-port=9100"
+        ],
+        "dart.env": {
+          "CHROME_EXECUTABLE": "/usr/bin/chromium"
+        }
       }
     }
   },
@@ -29,6 +38,7 @@
     4400,
     4500,
     5001,
+    5037,
     5173,
     8000,
     8080,
@@ -65,6 +75,10 @@
     "5001": {
       "label": "Firebase Functions Emulator",
       "onAutoForward": "notify"
+    },
+    "5037": {
+      "label": "Android ADB Server",
+      "onAutoForward": "silent"
     },
     "5173": {
       "label": "Vite Dev Server",

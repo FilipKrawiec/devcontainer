@@ -5,6 +5,11 @@ services:
       dockerfile: Dockerfile
     image: devws-polyglot:latest
     container_name: master_dev_workspace
+    ipc: host
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - "seccomp:unconfined"
     volumes:
       - devws_projects:/projects
       - devws_home:/home/vscode
@@ -23,12 +28,19 @@ services:
       GOPATH: /home/vscode/go
       GOCACHE: /home/vscode/.cache/go-build
       PUB_CACHE: /home/vscode/.pub-cache
+      PLAYWRIGHT_BROWSERS_PATH: /opt/ms-playwright
+      CHROME_EXECUTABLE: /usr/bin/chromium
+      ANDROID_HOME: /usr/lib/android-sdk
+      ANDROID_SDK_ROOT: /usr/lib/android-sdk
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "1"
     ports:
       - "3000:3000"
       - "4000:4000"
       - "4400:4400"
       - "4500:4500"
       - "5001:5001"
+      - "5037:5037"
       - "5173:5173"
       - "8000:8000"
       - "8080:8080"
