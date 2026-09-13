@@ -117,7 +117,27 @@ install-plugins:
       rm -rf "${target_dir}/${pkg}"
       cp -r "$dir" "${target_dir}/${pkg}"
     done
-    echo "Installed SDLC plugin into ${target_dir}"
+    repo_root="$(pwd -P)"
+    skills_root=""
+    for candidate in "${SKILLS_ROOT:-}" "${repo_root}/../skills" "$HOME/Developer/github.com/FilipKrawiec/skills" "$HOME/Developer/projects/github.com/FilipKrawiec/skills" "/projects/github.com/FilipKrawiec/skills"; do
+      if [ -n "$candidate" ] && [ -d "${candidate}/plugins/common" ]; then
+        skills_root="$candidate"
+        break
+      fi
+    done
+    if [ -n "$skills_root" ]; then
+      for dir in "${skills_root}/plugins/common/"*; do
+        [ -d "$dir" ] || continue
+        pkg="filipkrawiec-$(basename "$dir")"
+        rm -rf "${target_dir}/${pkg}"
+        cp -r "$dir" "${target_dir}/${pkg}"
+      done
+      if [ -d "${skills_root}/plugins/agy/core" ]; then
+        rm -rf "${target_dir}/filipkrawiec-agy-core"
+        cp -r "${skills_root}/plugins/agy/core" "${target_dir}/filipkrawiec-agy-core"
+      fi
+    fi
+    echo "Installed SDLC and core plugins into ${target_dir}"
 
 # Symlink SDLC and core plugins into local Antigravity IDE configuration (dev mode)
 link-plugins:
@@ -133,18 +153,24 @@ link-plugins:
       rm -rf "${target_dir}/${pkg}"
       ln -s "${repo_root}/${dir}" "${target_dir}/${pkg}"
     done
-    skills_root="/projects/github.com/FilipKrawiec/skills"
-    if [ -d "${skills_root}/plugins/common" ]; then
+    skills_root=""
+    for candidate in "${SKILLS_ROOT:-}" "${repo_root}/../skills" "$HOME/Developer/github.com/FilipKrawiec/skills" "$HOME/Developer/projects/github.com/FilipKrawiec/skills" "/projects/github.com/FilipKrawiec/skills"; do
+      if [ -n "$candidate" ] && [ -d "${candidate}/plugins/common" ]; then
+        skills_root="$candidate"
+        break
+      fi
+    done
+    if [ -n "$skills_root" ]; then
       for dir in "${skills_root}/plugins/common/"*; do
         [ -d "$dir" ] || continue
         pkg="filipkrawiec-$(basename "$dir")"
         rm -rf "${target_dir}/${pkg}"
         ln -s "$dir" "${target_dir}/${pkg}"
       done
-    fi
-    if [ -d "${skills_root}/plugins/agy/core" ]; then
-      rm -rf "${target_dir}/filipkrawiec-agy-core"
-      ln -s "${skills_root}/plugins/agy/core" "${target_dir}/filipkrawiec-agy-core"
+      if [ -d "${skills_root}/plugins/agy/core" ]; then
+        rm -rf "${target_dir}/filipkrawiec-agy-core"
+        ln -s "${skills_root}/plugins/agy/core" "${target_dir}/filipkrawiec-agy-core"
+      fi
     fi
     echo "Linked workspace plugins into ${target_dir}"
 
