@@ -40,7 +40,7 @@ KNOWN_CORE_SKILLS = {
     "review",
     "guide",
     "rephrase",
-    "grill-with-context",
+    "spec",
     "swot",
     "teach",
     "writing-great-skill",
