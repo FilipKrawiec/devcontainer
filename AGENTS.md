@@ -1,9 +1,5 @@
 ---
 active_skills:
-  - deliver
-  - define
-  - specify
-  - improve
   - init-project
 
 build_tools:
@@ -46,10 +42,7 @@ Project source code lives exclusively inside the persistent Docker named volume 
 
 ## SDLC Orchestration & Dev CLI
 
-This repository owns and hosts the **SDLC Orchestration Plugin** (`plugins/sdlc`) and the Kotlin Clikt CLI (`dev`):
-- `deliver`: Provider-neutral orchestration across Define, Specify, Plan, Dispatch, Verify, Review, and Ship.
-- `define` & `specify`: Backlog capture and specification refinement.
-- `improve`: Retrospective learning and CLI capability gap auditing (`cli-capability-gap`).
+This repository owns and hosts the **SDLC Plugin** (`plugins/sdlc`: `init-project` and the review personas) and the Kotlin Clikt CLI (`dev`). The delivery cycle skills (`spec`, `plan`, `ship`, `improve`, `afk`) live in the `filipkrawiec-workflow` package of FilipKrawiec/skills.
 - Standardize on `dev issuetracker` for backlog and phase tracking, and `dev forge` for branch, PR, review, and merge operations.
 
 ## Agent Expectations
