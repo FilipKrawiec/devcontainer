@@ -15,7 +15,7 @@ class RootCommand : CliktCommand(
           dev get <owner/repo>        Clone or fetch a project repository
           dev init <owner/repo>       Initialize and scaffold a new project repository
           dev reset <owner/repo>      Remove a project working tree
-          dev issuetracker <command>  Manage work items, backlog, and delivery board phases
+          dev issuetracker <command>  Manage work items, backlog, and delivery board columns
           dev forge <command>         Manage VCS branches, pull requests, reviews, and merges
     """.trimIndent()
 ) {

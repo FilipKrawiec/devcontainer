@@ -10,9 +10,9 @@ import com.github.ajalt.clikt.parameters.options.required
 import devcli.issuetracker.app.AddCommentUseCase
 import devcli.issuetracker.app.CreateWorkItemUseCase
 import devcli.issuetracker.app.GetWorkItemUseCase
-import devcli.issuetracker.app.UpdateWorkItemPhaseUseCase
+import devcli.issuetracker.app.UpdateWorkItemColumnUseCase
 import devcli.issuetracker.domain.CommentBody
-import devcli.issuetracker.domain.DeliveryPhase
+import devcli.issuetracker.domain.BoardColumn
 import devcli.issuetracker.domain.RepositorySlug
 import devcli.issuetracker.domain.WorkItemBody
 import devcli.issuetracker.domain.WorkItemId
@@ -41,14 +41,14 @@ class IssueTrackerCommand(
     workItems: WorkItems
 ) : CliktCommand(
     name = "issuetracker",
-    help = "Manage work items, backlog, and delivery board phases",
+    help = "Manage work items, backlog, and delivery board columns",
     invokeWithoutSubcommand = true
 ) {
     init {
         subcommands(
             CreateCommand(workItems),
             GetCommand(workItems),
-            SetPhaseCommand(workItems),
+            SetColumnCommand(workItems),
             CommentCommand(workItems)
         )
     }
@@ -84,7 +84,7 @@ class IssueTrackerCommand(
                         if (outcome.workItem.url != null) {
                             echo("  URL: ${outcome.workItem.url}")
                         }
-                        echo("  Phase: ${outcome.workItem.phase.displayName}")
+                        echo("  Column: ${outcome.workItem.column.displayName}")
                     }
                 }
                 is CreateWorkItemUseCase.Outcome.Failure -> {
@@ -120,7 +120,7 @@ class IssueTrackerCommand(
                     } else {
                         echo("Work Item #${outcome.workItem.id.value}: ${outcome.workItem.title.value}")
                         echo("  Type:  ${outcome.workItem.type.name.lowercase()}")
-                        echo("  Phase: ${outcome.workItem.phase.displayName}")
+                        echo("  Column: ${outcome.workItem.column.displayName}")
                         if (outcome.workItem.url != null) {
                             echo("  URL:   ${outcome.workItem.url}")
                         }
@@ -149,31 +149,31 @@ class IssueTrackerCommand(
         }
     }
 
-    private class SetPhaseCommand(private val workItems: WorkItems) : CliktCommand(
-        name = "set-phase",
-        help = "Update the delivery board phase for a work item"
+    private class SetColumnCommand(private val workItems: WorkItems) : CliktCommand(
+        name = "set-column",
+        help = "Move a work item to a delivery board column"
     ) {
         private val id by argument(help = "Work item number")
-        private val phase by option("--phase", "-p", help = "Target phase (e.g. 02-spec, 03-plan, 04-execute)").required()
+        private val column by option("--column", "-c", help = "Target column (backlog, todo, in-progress, review, done)").required()
         private val repo by option("--repo", "-r", help = "Target repository (owner/repo)")
         private val json by option("--json", help = "Emit output in JSON format").flag(default = false)
 
         override fun run() {
-            val useCase = UpdateWorkItemPhaseUseCase(workItems)
+            val useCase = UpdateWorkItemColumnUseCase(workItems)
             val slug = resolveCurrentRepo(repo)
             val itemId = WorkItemId.of(id)
-            val targetPhase = DeliveryPhase.of(phase)
-            val outcome = useCase.execute(slug, itemId, targetPhase)
+            val targetColumn = BoardColumn.of(column)
+            val outcome = useCase.execute(slug, itemId, targetColumn)
 
             when (outcome) {
-                is UpdateWorkItemPhaseUseCase.Outcome.Success -> {
+                is UpdateWorkItemColumnUseCase.Outcome.Success -> {
                     if (json) {
                         echo(JsonFormat.toJson(WorkItemDto.fromDomain(outcome.workItem)))
                     } else {
-                        echo("✔ Updated work item #${outcome.workItem.id.value} to phase: ${outcome.workItem.phase.displayName}")
+                        echo("✔ Updated work item #${outcome.workItem.id.value} to column: ${outcome.workItem.column.displayName}")
                     }
                 }
-                is UpdateWorkItemPhaseUseCase.Outcome.NotFound -> {
+                is UpdateWorkItemColumnUseCase.Outcome.NotFound -> {
                     if (json) {
                         echo(JsonFormat.toJson(ErrorDto(outcome.message)))
                     } else {
@@ -181,11 +181,11 @@ class IssueTrackerCommand(
                     }
                     throw com.github.ajalt.clikt.core.ProgramResult(1)
                 }
-                is UpdateWorkItemPhaseUseCase.Outcome.Failure -> {
+                is UpdateWorkItemColumnUseCase.Outcome.Failure -> {
                     if (json) {
                         echo(JsonFormat.toJson(ErrorDto(outcome.message)))
                     } else {
-                        echo("✘ Failed to update phase: ${outcome.message}", err = true)
+                        echo("✘ Failed to update column: ${outcome.message}", err = true)
                     }
                     throw com.github.ajalt.clikt.core.ProgramResult(1)
                 }

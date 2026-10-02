@@ -1,7 +1,7 @@
 package devcli.issuetracker.infra
 
 import devcli.issuetracker.domain.CommentBody
-import devcli.issuetracker.domain.DeliveryPhase
+import devcli.issuetracker.domain.BoardColumn
 import devcli.issuetracker.domain.RepositorySlug
 import devcli.issuetracker.domain.WorkItem
 import devcli.issuetracker.domain.WorkItemBody
@@ -87,18 +87,18 @@ class GitHubGraphQLWorkItems(
             try { WorkItemType.of(name) } catch (_: Exception) { null }
         } ?: WorkItemType.FEATURE
 
-        var currentPhase = DeliveryPhase.DEFINE
+        var currentColumn = BoardColumn.BACKLOG
         val projectItemNodes = issueJson["projectItems"]?.jsonObject?.get("nodes")?.jsonArray ?: emptyList()
         for (itemNode in projectItemNodes) {
             val fieldValues = itemNode.jsonObject["fieldValues"]?.jsonObject?.get("nodes")?.jsonArray ?: emptyList()
             for (fv in fieldValues) {
                 val fvObj = fv.jsonObject
                 val fieldName = fvObj["field"]?.jsonObject?.get("name")?.jsonPrimitive?.content
-                if (fieldName == "Status" || fieldName == "Workflow Phase") {
+                if (fieldName == "Status") {
                     val optName = fvObj["name"]?.jsonPrimitive?.content
                     if (optName != null) {
                         try {
-                            currentPhase = DeliveryPhase.of(optName)
+                            currentColumn = BoardColumn.of(optName)
                         } catch (_: Exception) {}
                     }
                 }
@@ -110,7 +110,7 @@ class GitHubGraphQLWorkItems(
             title = WorkItemTitle.of(title.ifBlank { "Untitled" }),
             body = WorkItemBody.of(body),
             type = typeLabel,
-            phase = currentPhase,
+            column = currentColumn,
             url = url
         )
     }
@@ -141,7 +141,7 @@ class GitHubGraphQLWorkItems(
             title = title,
             body = body,
             type = type,
-            phase = DeliveryPhase.DEFINE,
+            column = BoardColumn.BACKLOG,
             url = issueUrl
         )
 
@@ -155,7 +155,7 @@ class GitHubGraphQLWorkItems(
         return workItem
     }
 
-    override fun updatePhase(repo: RepositorySlug, id: WorkItemId, phase: DeliveryPhase): WorkItem {
+    override fun updateColumn(repo: RepositorySlug, id: WorkItemId, column: BoardColumn): WorkItem {
         val query = """
             query GetProjectAndItem(${'$'}owner: String!, ${'$'}repo: String!, ${'$'}number: Int!) {
               repository(owner: ${'$'}owner, name: ${'$'}repo) {
@@ -210,12 +210,12 @@ class GitHubGraphQLWorkItems(
                 val fieldObj = field.jsonObject
                 val fieldId = fieldObj["id"]?.jsonPrimitive?.content ?: continue
                 val fieldName = fieldObj["name"]?.jsonPrimitive?.content ?: continue
-                if (fieldName == "Status" || fieldName == "Workflow Phase") {
+                if (fieldName == "Status") {
                     val options = fieldObj["options"]?.jsonArray ?: emptyList()
                     val matchingOption = options.firstOrNull { opt ->
                         val optName = opt.jsonObject["name"]?.jsonPrimitive?.content ?: ""
                         try {
-                            DeliveryPhase.of(optName) == phase
+                            BoardColumn.of(optName) == column
                         } catch (_: Exception) { false }
                     }
                     if (matchingOption != null) {
@@ -231,7 +231,7 @@ class GitHubGraphQLWorkItems(
             title = WorkItemTitle.of(issueJson["title"]?.jsonPrimitive?.content ?: "Issue #$id"),
             body = WorkItemBody.of(issueJson["body"]?.jsonPrimitive?.content ?: ""),
             type = WorkItemType.FEATURE,
-            phase = phase,
+            column = column,
             url = issueJson["url"]?.jsonPrimitive?.content
         )
     }
