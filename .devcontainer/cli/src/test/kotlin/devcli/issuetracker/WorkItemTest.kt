@@ -1,6 +1,8 @@
 package devcli.issuetracker
 
+import com.github.ajalt.clikt.core.ProgramResult
 import devcli.issuetracker.api.CommentResponseDto
+import devcli.issuetracker.api.IssueTrackerCommand
 import devcli.issuetracker.api.ErrorDto
 import devcli.issuetracker.api.JsonFormat
 import devcli.issuetracker.api.WorkItemDto
@@ -98,6 +100,15 @@ class WorkItemTest {
         assertEquals(BoardColumn.REVIEW, BoardColumn.of(" Review "))
         assertEquals(BoardColumn.DONE, BoardColumn.of("done"))
         assertFailsWith<IllegalArgumentException> { BoardColumn.of("04 Execute") }
+    }
+
+    @Test
+    fun `set-column rejects an unknown column with exit code 1`() {
+        val command = IssueTrackerCommand(InMemoryWorkItems())
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(listOf("set-column", "1", "--column", "04-execute", "--repo", "owner/repo"))
+        }
+        assertEquals(1, result.statusCode)
     }
 
     @Test

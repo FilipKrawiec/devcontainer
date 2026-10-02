@@ -84,7 +84,7 @@ class IssueTrackerCommand(
                         if (outcome.workItem.url != null) {
                             echo("  URL: ${outcome.workItem.url}")
                         }
-                        echo("  Column: ${outcome.workItem.column.displayName}")
+                        echo("  Column: ${outcome.workItem.column?.displayName ?: "none"}")
                     }
                 }
                 is CreateWorkItemUseCase.Outcome.Failure -> {
@@ -120,7 +120,7 @@ class IssueTrackerCommand(
                     } else {
                         echo("Work Item #${outcome.workItem.id.value}: ${outcome.workItem.title.value}")
                         echo("  Type:  ${outcome.workItem.type.name.lowercase()}")
-                        echo("  Column: ${outcome.workItem.column.displayName}")
+                        echo("  Column: ${outcome.workItem.column?.displayName ?: "none"}")
                         if (outcome.workItem.url != null) {
                             echo("  URL:   ${outcome.workItem.url}")
                         }
@@ -162,7 +162,16 @@ class IssueTrackerCommand(
             val useCase = UpdateWorkItemColumnUseCase(workItems)
             val slug = resolveCurrentRepo(repo)
             val itemId = WorkItemId.of(id)
-            val targetColumn = BoardColumn.of(column)
+            val targetColumn = try {
+                BoardColumn.of(column)
+            } catch (e: IllegalArgumentException) {
+                if (json) {
+                    echo(JsonFormat.toJson(ErrorDto(e.message ?: "Unknown column")))
+                } else {
+                    echo("✘ ${e.message}", err = true)
+                }
+                throw com.github.ajalt.clikt.core.ProgramResult(1)
+            }
             val outcome = useCase.execute(slug, itemId, targetColumn)
 
             when (outcome) {
@@ -170,7 +179,7 @@ class IssueTrackerCommand(
                     if (json) {
                         echo(JsonFormat.toJson(WorkItemDto.fromDomain(outcome.workItem)))
                     } else {
-                        echo("✔ Updated work item #${outcome.workItem.id.value} to column: ${outcome.workItem.column.displayName}")
+                        echo("✔ Updated work item #${outcome.workItem.id.value} to column: ${outcome.workItem.column?.displayName ?: column}")
                     }
                 }
                 is UpdateWorkItemColumnUseCase.Outcome.NotFound -> {

@@ -43,7 +43,7 @@ Project source code lives exclusively inside the persistent Docker named volume 
 ## SDLC Orchestration & Dev CLI
 
 This repository owns and hosts the **SDLC Plugin** (`plugins/sdlc`: `init-project` and the review personas) and the Kotlin Clikt CLI (`dev`). The delivery cycle skills (`spec`, `plan`, `ship`, `improve`, `afk`) live in the `filipkrawiec-workflow` package of FilipKrawiec/skills.
-- Standardize on `dev issuetracker` for backlog and phase tracking, and `dev forge` for branch, PR, review, and merge operations.
+- Standardize on `dev issuetracker` for backlog and board column tracking, and `dev forge` for branch, PR, review, and merge operations.
 
 ## Agent Expectations
 

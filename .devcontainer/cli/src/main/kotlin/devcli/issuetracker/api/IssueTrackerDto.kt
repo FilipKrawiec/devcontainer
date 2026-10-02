@@ -11,7 +11,7 @@ data class WorkItemDto(
     val title: String,
     val body: String,
     val type: String,
-    val column: String,
+    val column: String?,
     val url: String? = null
 ) {
     companion object {
@@ -20,7 +20,7 @@ data class WorkItemDto(
             title = item.title.value,
             body = item.body.value,
             type = item.type.name.lowercase(),
-            column = item.column.displayName,
+            column = item.column?.displayName,
             url = item.url
         )
     }

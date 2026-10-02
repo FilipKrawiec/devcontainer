@@ -93,6 +93,6 @@ class WorkItem(
     val title: WorkItemTitle,
     val body: WorkItemBody,
     val type: WorkItemType,
-    val column: BoardColumn,
+    val column: BoardColumn?,
     val url: String? = null
 )
