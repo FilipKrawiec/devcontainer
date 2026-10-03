@@ -29,12 +29,15 @@ value class WorkItemBody private constructor(val value: String) {
     }
 }
 
-enum class WorkItemType(val label: String) {
+/** Epics sit on the epic board; every other issue sits on the issue board. */
+enum class BoardKind { ISSUE, EPIC }
+
+enum class WorkItemType(val label: String, val board: BoardKind = BoardKind.ISSUE) {
     FEATURE("type:feature"),
     BUG("type:bug"),
     TASK("type:task"),
     STORY("type:story"),
-    EPIC("type:epic");
+    EPIC("type:epic", BoardKind.EPIC);
 
     companion object {
         fun of(raw: String): WorkItemType {

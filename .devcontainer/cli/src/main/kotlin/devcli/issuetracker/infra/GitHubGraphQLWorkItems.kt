@@ -2,6 +2,7 @@ package devcli.issuetracker.infra
 
 import devcli.issuetracker.domain.CommentBody
 import devcli.issuetracker.domain.BoardColumn
+import devcli.issuetracker.domain.BoardKind
 import devcli.issuetracker.domain.RepositorySlug
 import devcli.issuetracker.domain.WorkItem
 import devcli.issuetracker.domain.WorkItemBody
@@ -12,9 +13,12 @@ import devcli.issuetracker.domain.WorkItems
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -76,7 +80,7 @@ class GitHubGraphQLWorkItems(
         }
 
         val data = client.execute(query, variables)
-        val issueJson = data["repository"]?.jsonObject?.get("issue")?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonObject ?: return null
+        val issueJson = data["repository"]?.jsonObject?.get("issue")?.takeIf { it !is JsonNull }?.jsonObject ?: return null
 
         val number = issueJson["number"]?.jsonPrimitive?.long ?: id.value
         val title = issueJson["title"]?.jsonPrimitive?.content ?: ""
@@ -179,7 +183,7 @@ class GitHubGraphQLWorkItems(
         }
 
         val data = client.execute(query, variables)
-        val issueJson = data["repository"]?.jsonObject?.get("issue")?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonObject
+        val issueJson = data["repository"]?.jsonObject?.get("issue")?.takeIf { it !is JsonNull }?.jsonObject
             ?: throw NoSuchElementException("Work item #$id not found in $repo")
 
         val targets = statusTargets(issueJson, column)
@@ -217,9 +221,9 @@ class GitHubGraphQLWorkItems(
     private fun addIssueToBoard(repo: RepositorySlug, type: WorkItemType, issueNodeId: String): Boolean {
         val lanes = readLanesConfig(repo)
         val projectId = if (lanes != null) {
-            configuredBoard(type, lanes)?.let { projectIdOf(it) }
+            configuredBoard(type.board, lanes)?.let { projectIdOf(it) }
         } else {
-            boardByTitle(type, userBoards(repo.owner))?.id
+            boardByTitle(type.board, userBoards(repo.owner))?.id
         } ?: return false
 
         val mutation = """
@@ -246,9 +250,7 @@ class GitHubGraphQLWorkItems(
         if (response.statusCode() !in 200..299) {
             throw RuntimeException("Failed to read .github/lanes.json: HTTP ${response.statusCode()}")
         }
-        val encoded = json.parseToJsonElement(response.body()).jsonObject["content"]?.jsonPrimitive?.content ?: return null
-        val text = String(Base64.getMimeDecoder().decode(encoded))
-        return json.parseToJsonElement(text).jsonObject
+        return decodeLanes(response.body())
     }
 
     private fun projectIdOf(board: BoardRef): String? {
@@ -267,25 +269,27 @@ class GitHubGraphQLWorkItems(
             put("login", board.owner)
             put("number", board.number)
         })
-        return data["repositoryOwner"]?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonObject?.get("projectV2")?.takeIf { it !is kotlinx.serialization.json.JsonNull }
+        return data["repositoryOwner"]?.takeIf { it !is JsonNull }?.jsonObject?.get("projectV2")?.takeIf { it !is JsonNull }
             ?.jsonObject?.get("id")?.jsonPrimitive?.content
     }
 
     private fun userBoards(owner: String): List<Board> {
         val query = """
             query GetUserProjects(${'$'}login: String!) {
-              user(login: ${'$'}login) {
-                projectsV2(first: 20) {
-                  nodes {
-                    id
-                    title
+              repositoryOwner(login: ${'$'}login) {
+                ... on ProjectV2Owner {
+                  projectsV2(first: 20) {
+                    nodes {
+                      id
+                      title
+                    }
                   }
                 }
               }
             }
         """.trimIndent()
         val data = client.execute(query, buildJsonObject { put("login", owner) })
-        val nodes = data["user"]?.jsonObject?.get("projectsV2")?.jsonObject?.get("nodes")?.jsonArray ?: return emptyList()
+        val nodes = data["repositoryOwner"]?.takeIf { it !is JsonNull }?.jsonObject?.get("projectsV2")?.jsonObject?.get("nodes")?.jsonArray ?: return emptyList()
         return nodes.mapNotNull { node ->
             val id = node.jsonObject["id"]?.jsonPrimitive?.content ?: return@mapNotNull null
             Board(id, node.jsonObject["title"]?.jsonPrimitive?.content ?: "")
@@ -315,23 +319,34 @@ class GitHubGraphQLWorkItems(
     }
 }
 
+/** lanes.json from a GitHub contents API response body, or null when the body has no content. */
+internal fun decodeLanes(contentsBody: String): JsonObject? {
+    val encoded = (Json.parseToJsonElement(contentsBody).jsonObject["content"] as? JsonPrimitive)?.contentOrNull ?: return null
+    val text = String(Base64.getMimeDecoder().decode(encoded), Charsets.UTF_8)
+    return Json.parseToJsonElement(text).jsonObject
+}
+
 internal data class Board(val id: String, val title: String)
 
 internal data class BoardRef(val owner: String, val number: Int)
 
-/** The board lanes.json names for [type]: `epicProject` for epics, `project` for every other issue; null when it names none. */
-internal fun configuredBoard(type: WorkItemType, lanes: JsonObject): BoardRef? {
-    val key = if (type == WorkItemType.EPIC) "epicProject" else "project"
+/** The board lanes.json names for [kind]: `epicProject` for the epic board, `project` for the issue board; null when it names none. */
+internal fun configuredBoard(kind: BoardKind, lanes: JsonObject): BoardRef? {
+    val key = when (kind) {
+        BoardKind.EPIC -> "epicProject"
+        BoardKind.ISSUE -> "project"
+    }
     val board = lanes[key] as? JsonObject ?: return null
-    val owner = board["owner"]?.jsonPrimitive?.content ?: return null
-    val number = board["number"]?.jsonPrimitive?.intOrNull ?: return null
+    val owner = (board["owner"] as? JsonPrimitive)?.contentOrNull ?: return null
+    val number = (board["number"] as? JsonPrimitive)?.intOrNull ?: return null
     return BoardRef(owner, number)
 }
 
-/** Without lanes.json: the board titled "Epic" for epics; for the rest a "Workflow" board, else the first board not for epics. */
-internal fun boardByTitle(type: WorkItemType, boards: List<Board>): Board? {
-    val (epicBoards, issueBoards) = boards.partition { it.title.contains("epic", ignoreCase = true) }
-    if (type == WorkItemType.EPIC) return epicBoards.firstOrNull()
+/** Without lanes.json: a board whose title has the word "Epic" is the epic board; the issue board is a "Workflow" board, else the first other board. */
+internal fun boardByTitle(kind: BoardKind, boards: List<Board>): Board? {
+    val epicWord = Regex("""\bepics?\b""", RegexOption.IGNORE_CASE)
+    val (epicBoards, issueBoards) = boards.partition { epicWord.containsMatchIn(it.title) }
+    if (kind == BoardKind.EPIC) return epicBoards.firstOrNull()
     return issueBoards.firstOrNull { it.title.contains("Workflow", ignoreCase = true) } ?: issueBoards.firstOrNull()
 }
 
