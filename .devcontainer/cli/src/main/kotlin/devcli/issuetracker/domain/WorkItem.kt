@@ -30,7 +30,17 @@ value class WorkItemBody private constructor(val value: String) {
 }
 
 /** Epics sit on the epic board; every other issue sits on the issue board. */
-enum class BoardKind { ISSUE, EPIC }
+enum class BoardKind(val displayName: String, val columns: List<BoardColumn>) {
+    ISSUE("issue board", BoardColumn.entries),
+    EPIC("epic board", listOf(BoardColumn.BACKLOG, BoardColumn.IN_PROGRESS, BoardColumn.DONE));
+
+    fun allows(column: BoardColumn): Boolean = column in columns
+
+    fun refusal(column: BoardColumn): String {
+        val names = columns.map { it.displayName }
+        return "The $displayName has only ${names.dropLast(1).joinToString(", ")} and ${names.last()}; got ${column.displayName}"
+    }
+}
 
 enum class WorkItemType(val label: String, val board: BoardKind = BoardKind.ISSUE) {
     FEATURE("type:feature"),

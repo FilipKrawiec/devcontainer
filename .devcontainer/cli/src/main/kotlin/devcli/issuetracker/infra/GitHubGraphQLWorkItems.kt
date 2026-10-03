@@ -42,7 +42,7 @@ class GitHubGraphQLWorkItems(
                   title
                   body
                   url
-                  labels(first: 10) {
+                  labels(first: 50) {
                     nodes {
                       name
                     }
@@ -104,7 +104,7 @@ class GitHubGraphQLWorkItems(
     }
 
     override fun create(repo: RepositorySlug, title: WorkItemTitle, body: WorkItemBody, type: WorkItemType): WorkItem {
-        val createUrl = "https://api.github.com/repos/${repo.owner}/${repo.name}/issues"
+        val createUrl = "${client.restBase}/repos/${repo.owner}/${repo.name}/issues"
         val payload = buildJsonObject {
             put("title", title.value)
             put("body", body.value)
@@ -122,22 +122,13 @@ class GitHubGraphQLWorkItems(
         val resJson = json.parseToJsonElement(response.body()).jsonObject
         val issueNumber = resJson["number"]?.jsonPrimitive?.long ?: throw RuntimeException("Issue number missing in response")
         val issueUrl = resJson["html_url"]?.jsonPrimitive?.content ?: ""
-        val issueNodeId = resJson["node_id"]?.jsonPrimitive?.content ?: ""
-
-        // Add the issue to its board (epics to the epic board, the rest to the issue board), which files it in Backlog
-        val column = try {
-            if (addIssueToBoard(repo, type, issueNodeId)) BoardColumn.BACKLOG else null
-        } catch (_: Exception) {
-            // Non-fatal if project board integration is unavailable
-            null
-        }
 
         return WorkItem(
             id = WorkItemId.of(issueNumber),
             title = title,
             body = body,
             type = type,
-            column = column,
+            column = null,
             url = issueUrl
         )
     }
@@ -205,7 +196,7 @@ class GitHubGraphQLWorkItems(
     }
 
     override fun addComment(repo: RepositorySlug, id: WorkItemId, comment: CommentBody): String {
-        val commentUrl = "https://api.github.com/repos/${repo.owner}/${repo.name}/issues/${id.value}/comments"
+        val commentUrl = "${client.restBase}/repos/${repo.owner}/${repo.name}/issues/${id.value}/comments"
         val payload = buildJsonObject {
             put("body", comment.value)
         }
@@ -217,14 +208,14 @@ class GitHubGraphQLWorkItems(
         return resJson["html_url"]?.jsonPrimitive?.content ?: "Comment posted"
     }
 
-    /** Adds the issue to the board for [type]; false when there is none. */
-    private fun addIssueToBoard(repo: RepositorySlug, type: WorkItemType, issueNodeId: String): Boolean {
+    override fun addToBoard(repo: RepositorySlug, item: WorkItem): BoardColumn? {
         val lanes = readLanesConfig(repo)
         val projectId = if (lanes != null) {
-            configuredBoard(type.board, lanes)?.let { projectIdOf(it) }
+            val board = configuredBoard(item.type.board, lanes) ?: return null
+            projectIdOf(board) ?: throw IllegalStateException("No project #${board.number} owned by ${board.owner}, named in .github/lanes.json")
         } else {
-            boardByTitle(type.board, userBoards(repo.owner))?.id
-        } ?: return false
+            boardByTitle(item.type.board, userBoards(repo.owner))?.id ?: return null
+        }
 
         val mutation = """
             mutation AddItem(${'$'}projectId: ID!, ${'$'}contentId: ID!) {
@@ -238,14 +229,35 @@ class GitHubGraphQLWorkItems(
 
         client.execute(mutation, buildJsonObject {
             put("projectId", projectId)
-            put("contentId", issueNodeId)
+            put("contentId", issueNodeId(repo, item.id))
         })
-        return true
+        // The board's "Item added" workflow files it in Backlog
+        return BoardColumn.BACKLOG
+    }
+
+    private fun issueNodeId(repo: RepositorySlug, id: WorkItemId): String {
+        val query = """
+            query GetIssueId(${'$'}owner: String!, ${'$'}repo: String!, ${'$'}number: Int!) {
+              repository(owner: ${'$'}owner, name: ${'$'}repo) {
+                issue(number: ${'$'}number) {
+                  id
+                }
+              }
+            }
+        """.trimIndent()
+        val data = client.execute(query, buildJsonObject {
+            put("owner", repo.owner)
+            put("repo", repo.name)
+            put("number", id.value.toInt())
+        })
+        return data["repository"]?.jsonObject?.get("issue")?.takeIf { it !is JsonNull }
+            ?.jsonObject?.get("id")?.jsonPrimitive?.content
+            ?: throw NoSuchElementException("Work item #${id.value} not found in $repo")
     }
 
     /** The repository's `.github/lanes.json`, or null when it has none. */
     private fun readLanesConfig(repo: RepositorySlug): JsonObject? {
-        val response = client.executeRest("https://api.github.com/repos/${repo.owner}/${repo.name}/contents/.github/lanes.json")
+        val response = client.executeRest("${client.restBase}/repos/${repo.owner}/${repo.name}/contents/.github/lanes.json")
         if (response.statusCode() == 404) return null
         if (response.statusCode() !in 200..299) {
             throw RuntimeException("Failed to read .github/lanes.json: HTTP ${response.statusCode()}")

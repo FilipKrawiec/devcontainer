@@ -12,16 +12,18 @@ data class WorkItemDto(
     val body: String,
     val type: String,
     val column: String?,
-    val url: String? = null
+    val url: String? = null,
+    val boardWarning: String? = null
 ) {
     companion object {
-        fun fromDomain(item: WorkItem): WorkItemDto = WorkItemDto(
+        fun fromDomain(item: WorkItem, boardWarning: String? = null): WorkItemDto = WorkItemDto(
             id = item.id.value,
             title = item.title.value,
             body = item.body.value,
             type = item.type.name.lowercase(),
             column = item.column?.displayName,
-            url = item.url
+            url = item.url,
+            boardWarning = boardWarning
         )
     }
 }
