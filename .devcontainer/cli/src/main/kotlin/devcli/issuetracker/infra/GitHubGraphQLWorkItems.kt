@@ -42,7 +42,7 @@ class GitHubGraphQLWorkItems(
                   title
                   body
                   url
-                  labels(first: 10) {
+                  labels(first: 50) {
                     nodes {
                       name
                     }

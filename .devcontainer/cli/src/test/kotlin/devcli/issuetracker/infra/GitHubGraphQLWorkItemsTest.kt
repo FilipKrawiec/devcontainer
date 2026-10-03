@@ -61,7 +61,8 @@ class GitHubGraphQLWorkItemsTest {
         val epic = create(WorkItemType.EPIC)
 
         assertEquals(BoardColumn.BACKLOG, workItems.addToBoard(repo, epic))
-        assertTrue(graphqlBodies.any { it.contains("\"projectId\":\"P_4\"") && it.contains("\"contentId\":\"I_7\"") })
+        val add = graphqlBodies.single { it.contains("addProjectV2ItemById") }
+        assertTrue(add.contains("\"projectId\":\"P_4\"") && add.contains("\"contentId\":\"I_7\""))
     }
 
     @Test
@@ -69,7 +70,7 @@ class GitHubGraphQLWorkItemsTest {
         val story = create(WorkItemType.STORY)
 
         assertEquals(BoardColumn.BACKLOG, workItems.addToBoard(repo, story))
-        assertTrue(graphqlBodies.any { it.contains("\"projectId\":\"P_3\"") })
+        assertTrue(graphqlBodies.single { it.contains("addProjectV2ItemById") }.contains("\"projectId\":\"P_3\""))
     }
 
     @Test

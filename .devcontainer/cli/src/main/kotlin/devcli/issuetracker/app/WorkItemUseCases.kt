@@ -25,6 +25,7 @@ class CreateWorkItemUseCase(private val workItems: WorkItems) {
         }
         return try {
             val column = workItems.addToBoard(repo, item)
+                ?: return Outcome.Success(item, "Not added to a board: no ${item.type.board.displayName} is configured")
             Outcome.Success(WorkItem(item.id, item.title, item.body, item.type, column, item.url))
         } catch (e: Exception) {
             Outcome.Success(item, "Not added to a board: ${e.message ?: e::class.simpleName}")
@@ -42,10 +43,7 @@ class UpdateWorkItemColumnUseCase(private val workItems: WorkItems) {
     fun execute(repo: RepositorySlug, id: WorkItemId, column: BoardColumn): Outcome {
         return try {
             val current = workItems.findById(repo, id) ?: return Outcome.NotFound("Work item #${id.value} not found in $repo")
-            if (column !in current.type.board.columns) {
-                val allowed = current.type.board.columns.map { it.displayName }
-                return Outcome.Failure("An epic's board has only ${allowed.dropLast(1).joinToString(", ")} and ${allowed.last()}; got ${column.displayName}")
-            }
+            if (!current.type.board.allows(column)) return Outcome.Failure(current.type.board.refusal(column))
             val item = workItems.updateColumn(repo, id, column)
             Outcome.Success(item)
         } catch (e: NoSuchElementException) {
