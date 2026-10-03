@@ -65,7 +65,7 @@ class IssueTrackerCommand(
     ) {
         private val title by option("--title", "-t", help = "Work item title").required()
         private val body by option("--body", "-b", help = "Work item description").default("")
-        private val type by option("--type", help = "Type (feature, bug, task, story)").default("feature")
+        private val type by option("--type", help = "Type (feature, bug, task, story, epic); epics go to the epic board").default("feature")
         private val repo by option("--repo", "-r", help = "Target repository (owner/repo)")
         private val json by option("--json", help = "Emit output in JSON format").flag(default = false)
 

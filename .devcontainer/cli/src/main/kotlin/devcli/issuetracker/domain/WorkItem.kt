@@ -33,7 +33,8 @@ enum class WorkItemType(val label: String) {
     FEATURE("type:feature"),
     BUG("type:bug"),
     TASK("type:task"),
-    STORY("type:story");
+    STORY("type:story"),
+    EPIC("type:epic");
 
     companion object {
         fun of(raw: String): WorkItemType {

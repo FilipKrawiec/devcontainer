@@ -87,6 +87,7 @@ class WorkItemTest {
         assertEquals(WorkItemType.FEATURE, WorkItemType.of("feature"))
         assertEquals(WorkItemType.FEATURE, WorkItemType.of("type:feature"))
         assertEquals(WorkItemType.BUG, WorkItemType.of("BUG"))
+        assertEquals(WorkItemType.EPIC, WorkItemType.of("type:epic"))
         assertFailsWith<IllegalArgumentException> { WorkItemType.of("unknown") }
     }
 
