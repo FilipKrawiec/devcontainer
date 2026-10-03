@@ -30,6 +30,7 @@ class InMemoryWorkItems : WorkItems {
     private val items = mutableMapOf<Long, WorkItem>()
     private var sequence = 1L
     val comments = mutableListOf<Pair<Long, String>>()
+    var boardFailure: String? = null
 
     override fun findById(repo: RepositorySlug, id: WorkItemId): WorkItem? = items[id.value]
 
@@ -40,9 +41,15 @@ class InMemoryWorkItems : WorkItems {
         type: WorkItemType
     ): WorkItem {
         val id = WorkItemId.of(sequence++)
-        val item = WorkItem(id, title, body, type, BoardColumn.BACKLOG, "https://github.com/${repo.value}/issues/${id.value}")
+        val item = WorkItem(id, title, body, type, null, "https://github.com/${repo.value}/issues/${id.value}")
         items[id.value] = item
         return item
+    }
+
+    override fun addToBoard(repo: RepositorySlug, item: WorkItem): BoardColumn? {
+        boardFailure?.let { throw IllegalStateException(it) }
+        items[item.id.value] = WorkItem(item.id, item.title, item.body, item.type, BoardColumn.BACKLOG, item.url)
+        return BoardColumn.BACKLOG
     }
 
     override fun updateColumn(
@@ -146,6 +153,33 @@ class WorkItemTest {
         val outcome = updateUseCase.execute(repo, created.id, BoardColumn.IN_PROGRESS)
         assertIs<UpdateWorkItemColumnUseCase.Outcome.Success>(outcome)
         assertEquals(BoardColumn.IN_PROGRESS, outcome.workItem.column)
+    }
+
+    @Test
+    fun `CreateWorkItemUseCase keeps the issue and warns when it cannot reach a board`() {
+        val workItems = InMemoryWorkItems().apply { boardFailure = "HTTP 500 reading .github/lanes.json" }
+        val repo = RepositorySlug.of("acme/app")
+
+        val outcome = CreateWorkItemUseCase(workItems).execute(repo, WorkItemTitle.of("Epic"), WorkItemBody.of(""), WorkItemType.EPIC)
+
+        assertIs<CreateWorkItemUseCase.Outcome.Success>(outcome)
+        assertEquals(null, outcome.workItem.column)
+        assertEquals("Not added to a board: HTTP 500 reading .github/lanes.json", outcome.boardWarning)
+    }
+
+    @Test
+    fun `UpdateWorkItemColumnUseCase rejects Todo and Review for an epic`() {
+        val workItems = InMemoryWorkItems()
+        val repo = RepositorySlug.of("acme/app")
+        val epic = (CreateWorkItemUseCase(workItems).execute(repo, WorkItemTitle.of("Epic"), WorkItemBody.of(""), WorkItemType.EPIC)
+            as CreateWorkItemUseCase.Outcome.Success).workItem
+        val update = UpdateWorkItemColumnUseCase(workItems)
+
+        val rejected = update.execute(repo, epic.id, BoardColumn.TODO)
+        assertIs<UpdateWorkItemColumnUseCase.Outcome.Failure>(rejected)
+        assertEquals("An epic's board has only Backlog, In progress and Done; got Todo", rejected.message)
+        assertIs<UpdateWorkItemColumnUseCase.Outcome.Failure>(update.execute(repo, epic.id, BoardColumn.REVIEW))
+        assertEquals(BoardColumn.DONE, (update.execute(repo, epic.id, BoardColumn.DONE) as UpdateWorkItemColumnUseCase.Outcome.Success).workItem.column)
     }
 
     @Test

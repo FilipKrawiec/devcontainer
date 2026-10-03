@@ -40,7 +40,8 @@ class GitHubGraphQLClient(
         .followRedirects(HttpClient.Redirect.NORMAL)
         .build(),
     private val tokenProvider: () -> String = { GitHubAuthTokenResolver.resolveToken() },
-    private val endpoint: URI = URI.create("https://api.github.com/graphql")
+    private val endpoint: URI = URI.create("https://api.github.com/graphql"),
+    val restBase: String = "https://api.github.com"
 ) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 

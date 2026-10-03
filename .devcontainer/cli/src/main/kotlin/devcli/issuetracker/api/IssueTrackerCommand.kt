@@ -78,8 +78,9 @@ class IssueTrackerCommand(
             when (outcome) {
                 is CreateWorkItemUseCase.Outcome.Success -> {
                     if (json) {
-                        echo(JsonFormat.toJson(WorkItemDto.fromDomain(outcome.workItem)))
+                        echo(JsonFormat.toJson(WorkItemDto.fromDomain(outcome.workItem, outcome.boardWarning)))
                     } else {
+                        outcome.boardWarning?.let { echo("⚠ $it", err = true) }
                         echo("✔ Created ${outcome.workItem.type.name.lowercase()} #${outcome.workItem.id.value}: ${outcome.workItem.title.value}")
                         if (outcome.workItem.url != null) {
                             echo("  URL: ${outcome.workItem.url}")

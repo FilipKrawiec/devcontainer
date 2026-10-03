@@ -30,7 +30,10 @@ value class WorkItemBody private constructor(val value: String) {
 }
 
 /** Epics sit on the epic board; every other issue sits on the issue board. */
-enum class BoardKind { ISSUE, EPIC }
+enum class BoardKind(val columns: List<BoardColumn>) {
+    ISSUE(BoardColumn.entries),
+    EPIC(listOf(BoardColumn.BACKLOG, BoardColumn.IN_PROGRESS, BoardColumn.DONE))
+}
 
 enum class WorkItemType(val label: String, val board: BoardKind = BoardKind.ISSUE) {
     FEATURE("type:feature"),
