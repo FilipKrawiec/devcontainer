@@ -1,7 +1,7 @@
 package devcli.issuetracker.app
 
 import devcli.issuetracker.domain.CommentBody
-import devcli.issuetracker.domain.DeliveryPhase
+import devcli.issuetracker.domain.BoardColumn
 import devcli.issuetracker.domain.RepositorySlug
 import devcli.issuetracker.domain.WorkItem
 import devcli.issuetracker.domain.WorkItemBody
@@ -26,21 +26,21 @@ class CreateWorkItemUseCase(private val workItems: WorkItems) {
     }
 }
 
-class UpdateWorkItemPhaseUseCase(private val workItems: WorkItems) {
+class UpdateWorkItemColumnUseCase(private val workItems: WorkItems) {
     sealed interface Outcome {
         data class Success(val workItem: WorkItem) : Outcome
         data class NotFound(val message: String) : Outcome
         data class Failure(val message: String) : Outcome
     }
 
-    fun execute(repo: RepositorySlug, id: WorkItemId, phase: DeliveryPhase): Outcome {
+    fun execute(repo: RepositorySlug, id: WorkItemId, column: BoardColumn): Outcome {
         return try {
-            val item = workItems.updatePhase(repo, id, phase)
+            val item = workItems.updateColumn(repo, id, column)
             Outcome.Success(item)
         } catch (e: NoSuchElementException) {
             Outcome.NotFound(e.message ?: "Work item #$id not found")
         } catch (e: Exception) {
-            Outcome.Failure(e.message ?: "Failed to update phase")
+            Outcome.Failure(e.message ?: "Failed to update column")
         }
     }
 }

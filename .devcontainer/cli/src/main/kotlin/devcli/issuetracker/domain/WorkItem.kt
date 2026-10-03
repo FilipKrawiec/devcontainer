@@ -44,24 +44,18 @@ enum class WorkItemType(val label: String) {
     }
 }
 
-enum class DeliveryPhase(val displayName: String) {
-    DEFINE("01 Define"),
-    SPEC("02 Spec"),
-    PLAN("03 Plan"),
-    EXECUTE("04 Execute"),
-    REVIEW("05 Review"),
-    SHIP("06 Ship"),
-    IMPROVE("07 Improve");
+enum class BoardColumn(val displayName: String) {
+    BACKLOG("Backlog"),
+    TODO("Todo"),
+    IN_PROGRESS("In progress"),
+    REVIEW("Review"),
+    DONE("Done");
 
     companion object {
-        fun of(raw: String): DeliveryPhase {
+        fun of(raw: String): BoardColumn {
             val cleaned = raw.trim().lowercase().replace("-", " ").replace("_", " ")
-            return entries.firstOrNull {
-                it.name.lowercase() == cleaned ||
-                it.displayName.lowercase() == cleaned ||
-                it.displayName.lowercase().removePrefix("01 ").removePrefix("02 ").removePrefix("03 ")
-                    .removePrefix("04 ").removePrefix("05 ").removePrefix("06 ").removePrefix("07 ") == cleaned
-            } ?: throw IllegalArgumentException("Unknown DeliveryPhase: '$raw'. Valid phases: ${entries.map { it.displayName }}")
+            return entries.firstOrNull { it.displayName.lowercase() == cleaned }
+                ?: throw IllegalArgumentException("Unknown BoardColumn: '$raw'. Valid columns: ${entries.map { it.displayName }}")
         }
     }
 }
@@ -99,6 +93,6 @@ class WorkItem(
     val title: WorkItemTitle,
     val body: WorkItemBody,
     val type: WorkItemType,
-    val phase: DeliveryPhase,
+    val column: BoardColumn?,
     val url: String? = null
 )

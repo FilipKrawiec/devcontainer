@@ -1,15 +1,17 @@
 package devcli.issuetracker
 
+import com.github.ajalt.clikt.core.ProgramResult
 import devcli.issuetracker.api.CommentResponseDto
+import devcli.issuetracker.api.IssueTrackerCommand
 import devcli.issuetracker.api.ErrorDto
 import devcli.issuetracker.api.JsonFormat
 import devcli.issuetracker.api.WorkItemDto
 import devcli.issuetracker.app.AddCommentUseCase
 import devcli.issuetracker.app.CreateWorkItemUseCase
 import devcli.issuetracker.app.GetWorkItemUseCase
-import devcli.issuetracker.app.UpdateWorkItemPhaseUseCase
+import devcli.issuetracker.app.UpdateWorkItemColumnUseCase
 import devcli.issuetracker.domain.CommentBody
-import devcli.issuetracker.domain.DeliveryPhase
+import devcli.issuetracker.domain.BoardColumn
 import devcli.issuetracker.domain.RepositorySlug
 import devcli.issuetracker.domain.WorkItem
 import devcli.issuetracker.domain.WorkItemBody
@@ -38,18 +40,18 @@ class InMemoryWorkItems : WorkItems {
         type: WorkItemType
     ): WorkItem {
         val id = WorkItemId.of(sequence++)
-        val item = WorkItem(id, title, body, type, DeliveryPhase.DEFINE, "https://github.com/${repo.value}/issues/${id.value}")
+        val item = WorkItem(id, title, body, type, BoardColumn.BACKLOG, "https://github.com/${repo.value}/issues/${id.value}")
         items[id.value] = item
         return item
     }
 
-    override fun updatePhase(
+    override fun updateColumn(
         repo: RepositorySlug,
         id: WorkItemId,
-        phase: DeliveryPhase
+        column: BoardColumn
     ): WorkItem {
         val existing = items[id.value] ?: throw NoSuchElementException("WorkItem #${id.value} not found")
-        val updated = WorkItem(existing.id, existing.title, existing.body, existing.type, phase, existing.url)
+        val updated = WorkItem(existing.id, existing.title, existing.body, existing.type, column, existing.url)
         items[id.value] = updated
         return updated
     }
@@ -89,15 +91,24 @@ class WorkItemTest {
     }
 
     @Test
-    fun `DeliveryPhase parses normalized names`() {
-        assertEquals(DeliveryPhase.DEFINE, DeliveryPhase.of("01 Define"))
-        assertEquals(DeliveryPhase.SPEC, DeliveryPhase.of("02-spec"))
-        assertEquals(DeliveryPhase.PLAN, DeliveryPhase.of("plan"))
-        assertEquals(DeliveryPhase.EXECUTE, DeliveryPhase.of("04 execute"))
-        assertEquals(DeliveryPhase.REVIEW, DeliveryPhase.of("review"))
-        assertEquals(DeliveryPhase.SHIP, DeliveryPhase.of("ship"))
-        assertEquals(DeliveryPhase.IMPROVE, DeliveryPhase.of("improve"))
-        assertFailsWith<IllegalArgumentException> { DeliveryPhase.of("invalid-phase") }
+    fun `BoardColumn parses normalized names`() {
+        assertEquals(BoardColumn.BACKLOG, BoardColumn.of("Backlog"))
+        assertEquals(BoardColumn.TODO, BoardColumn.of("todo"))
+        assertEquals(BoardColumn.IN_PROGRESS, BoardColumn.of("In progress"))
+        assertEquals(BoardColumn.IN_PROGRESS, BoardColumn.of("in-progress"))
+        assertEquals(BoardColumn.IN_PROGRESS, BoardColumn.of("IN_PROGRESS"))
+        assertEquals(BoardColumn.REVIEW, BoardColumn.of(" Review "))
+        assertEquals(BoardColumn.DONE, BoardColumn.of("done"))
+        assertFailsWith<IllegalArgumentException> { BoardColumn.of("04 Execute") }
+    }
+
+    @Test
+    fun `set-column rejects an unknown column with exit code 1`() {
+        val command = IssueTrackerCommand(InMemoryWorkItems())
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(listOf("set-column", "1", "--column", "04-execute", "--repo", "owner/repo"))
+        }
+        assertEquals(1, result.statusCode)
     }
 
     @Test
@@ -110,7 +121,7 @@ class WorkItemTest {
     }
 
     @Test
-    fun `CreateWorkItemUseCase creates item on backlog in Define phase`() {
+    fun `CreateWorkItemUseCase creates item in the Backlog column`() {
         val workItems = InMemoryWorkItems()
         val useCase = CreateWorkItemUseCase(workItems)
         val repo = RepositorySlug.of("FilipKrawiec/devcontainer")
@@ -119,31 +130,31 @@ class WorkItemTest {
         assertIs<CreateWorkItemUseCase.Outcome.Success>(outcome)
         assertEquals(1L, outcome.workItem.id.value)
         assertEquals("Test Issue", outcome.workItem.title.value)
-        assertEquals(DeliveryPhase.DEFINE, outcome.workItem.phase)
+        assertEquals(BoardColumn.BACKLOG, outcome.workItem.column)
     }
 
     @Test
-    fun `UpdateWorkItemPhaseUseCase advances phase successfully`() {
+    fun `UpdateWorkItemColumnUseCase moves the item to the column`() {
         val workItems = InMemoryWorkItems()
         val createUseCase = CreateWorkItemUseCase(workItems)
-        val updateUseCase = UpdateWorkItemPhaseUseCase(workItems)
+        val updateUseCase = UpdateWorkItemColumnUseCase(workItems)
         val repo = RepositorySlug.of("FilipKrawiec/devcontainer")
 
         val created = (createUseCase.execute(repo, WorkItemTitle.of("Test"), WorkItemBody.of(""), WorkItemType.BUG) as CreateWorkItemUseCase.Outcome.Success).workItem
 
-        val outcome = updateUseCase.execute(repo, created.id, DeliveryPhase.EXECUTE)
-        assertIs<UpdateWorkItemPhaseUseCase.Outcome.Success>(outcome)
-        assertEquals(DeliveryPhase.EXECUTE, outcome.workItem.phase)
+        val outcome = updateUseCase.execute(repo, created.id, BoardColumn.IN_PROGRESS)
+        assertIs<UpdateWorkItemColumnUseCase.Outcome.Success>(outcome)
+        assertEquals(BoardColumn.IN_PROGRESS, outcome.workItem.column)
     }
 
     @Test
-    fun `UpdateWorkItemPhaseUseCase returns NotFound for missing item`() {
+    fun `UpdateWorkItemColumnUseCase returns NotFound for missing item`() {
         val workItems = InMemoryWorkItems()
-        val updateUseCase = UpdateWorkItemPhaseUseCase(workItems)
+        val updateUseCase = UpdateWorkItemColumnUseCase(workItems)
         val repo = RepositorySlug.of("FilipKrawiec/devcontainer")
 
-        val outcome = updateUseCase.execute(repo, WorkItemId.of(999), DeliveryPhase.SPEC)
-        assertIs<UpdateWorkItemPhaseUseCase.Outcome.NotFound>(outcome)
+        val outcome = updateUseCase.execute(repo, WorkItemId.of(999), BoardColumn.TODO)
+        assertIs<UpdateWorkItemColumnUseCase.Outcome.NotFound>(outcome)
     }
 
     @Test
@@ -175,10 +186,10 @@ class WorkItemTest {
 
     @Test
     fun `Json serialization converts DTOs to valid JSON`() {
-        val dto = WorkItemDto(12L, "Title", "Body", "feature", "02 Spec", "https://github.com/owner/repo/issues/12")
+        val dto = WorkItemDto(12L, "Title", "Body", "feature", "Todo", "https://github.com/owner/repo/issues/12")
         val json = JsonFormat.toJson(dto)
         assertTrue(json.contains("\"id\": 12"))
-        assertTrue(json.contains("\"phase\": \"02 Spec\""))
+        assertTrue(json.contains("\"column\": \"Todo\""))
 
         val err = ErrorDto("Something went wrong")
         val errJson = JsonFormat.toJson(err)

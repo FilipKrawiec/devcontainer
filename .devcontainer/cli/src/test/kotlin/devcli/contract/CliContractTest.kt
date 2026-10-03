@@ -41,7 +41,7 @@ class CliContractTest {
         val subcommands = issueTracker.registeredSubcommands().map { it.commandName }.toSet()
 
         assertEquals(
-            setOf("create", "get", "set-phase", "comment"),
+            setOf("create", "get", "set-column", "comment"),
             subcommands,
             "IssueTrackerCommand must match SDLC specification subcommands"
         )
@@ -73,7 +73,7 @@ class CliContractTest {
             title = "feat(test): sample feature",
             body = "Task description",
             type = "feature",
-            phase = "01 Define",
+            column = "Backlog",
             url = "https://github.com/FilipKrawiec/devcontainer/issues/42"
         )
         val json = JsonFormat.toJson(dto)
@@ -81,7 +81,7 @@ class CliContractTest {
         assertTrue(json.contains("\"id\": 42"))
         assertTrue(json.contains("\"title\": \"feat(test): sample feature\""))
         assertTrue(json.contains("\"type\": \"feature\""))
-        assertTrue(json.contains("\"phase\": \"01 Define\""))
+        assertTrue(json.contains("\"column\": \"Backlog\""))
         assertTrue(json.contains("\"url\": \"https://github.com/FilipKrawiec/devcontainer/issues/42\""))
     }
 

@@ -1,7 +1,7 @@
 package devcli.issuetracker.infra
 
 import devcli.issuetracker.domain.CommentBody
-import devcli.issuetracker.domain.DeliveryPhase
+import devcli.issuetracker.domain.BoardColumn
 import devcli.issuetracker.domain.RepositorySlug
 import devcli.issuetracker.domain.WorkItem
 import devcli.issuetracker.domain.WorkItemBody
@@ -87,30 +87,12 @@ class GitHubGraphQLWorkItems(
             try { WorkItemType.of(name) } catch (_: Exception) { null }
         } ?: WorkItemType.FEATURE
 
-        var currentPhase = DeliveryPhase.DEFINE
-        val projectItemNodes = issueJson["projectItems"]?.jsonObject?.get("nodes")?.jsonArray ?: emptyList()
-        for (itemNode in projectItemNodes) {
-            val fieldValues = itemNode.jsonObject["fieldValues"]?.jsonObject?.get("nodes")?.jsonArray ?: emptyList()
-            for (fv in fieldValues) {
-                val fvObj = fv.jsonObject
-                val fieldName = fvObj["field"]?.jsonObject?.get("name")?.jsonPrimitive?.content
-                if (fieldName == "Status" || fieldName == "Workflow Phase") {
-                    val optName = fvObj["name"]?.jsonPrimitive?.content
-                    if (optName != null) {
-                        try {
-                            currentPhase = DeliveryPhase.of(optName)
-                        } catch (_: Exception) {}
-                    }
-                }
-            }
-        }
-
         return WorkItem(
             id = WorkItemId.of(number),
             title = WorkItemTitle.of(title.ifBlank { "Untitled" }),
             body = WorkItemBody.of(body),
             type = typeLabel,
-            phase = currentPhase,
+            column = statusColumn(issueJson),
             url = url
         )
     }
@@ -136,26 +118,26 @@ class GitHubGraphQLWorkItems(
         val issueUrl = resJson["html_url"]?.jsonPrimitive?.content ?: ""
         val issueNodeId = resJson["node_id"]?.jsonPrimitive?.content ?: ""
 
-        val workItem = WorkItem(
+        // Try adding issue to project board if owner has active projects; the board files it in Backlog
+        val column = try {
+            addIssueToDefaultProject(repo.owner, issueNodeId)
+            BoardColumn.BACKLOG
+        } catch (_: Exception) {
+            // Non-fatal if project board integration is unavailable
+            null
+        }
+
+        return WorkItem(
             id = WorkItemId.of(issueNumber),
             title = title,
             body = body,
             type = type,
-            phase = DeliveryPhase.DEFINE,
+            column = column,
             url = issueUrl
         )
-
-        // Try adding issue to project board if owner has active projects
-        try {
-            addIssueToDefaultProject(repo.owner, issueNodeId)
-        } catch (_: Exception) {
-            // Non-fatal if project board integration is unavailable
-        }
-
-        return workItem
     }
 
-    override fun updatePhase(repo: RepositorySlug, id: WorkItemId, phase: DeliveryPhase): WorkItem {
+    override fun updateColumn(repo: RepositorySlug, id: WorkItemId, column: BoardColumn): WorkItem {
         val query = """
             query GetProjectAndItem(${'$'}owner: String!, ${'$'}repo: String!, ${'$'}number: Int!) {
               repository(owner: ${'$'}owner, name: ${'$'}repo) {
@@ -199,31 +181,12 @@ class GitHubGraphQLWorkItems(
         val issueJson = data["repository"]?.jsonObject?.get("issue")?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonObject
             ?: throw NoSuchElementException("Work item #$id not found in $repo")
 
-        val projectItems = issueJson["projectItems"]?.jsonObject?.get("nodes")?.jsonArray ?: emptyList()
-        for (item in projectItems) {
-            val itemId = item.jsonObject["id"]?.jsonPrimitive?.content ?: continue
-            val projectObj = item.jsonObject["project"]?.jsonObject ?: continue
-            val projectId = projectObj["id"]?.jsonPrimitive?.content ?: continue
-            val fields = projectObj["fields"]?.jsonObject?.get("nodes")?.jsonArray ?: emptyList()
-
-            for (field in fields) {
-                val fieldObj = field.jsonObject
-                val fieldId = fieldObj["id"]?.jsonPrimitive?.content ?: continue
-                val fieldName = fieldObj["name"]?.jsonPrimitive?.content ?: continue
-                if (fieldName == "Status" || fieldName == "Workflow Phase") {
-                    val options = fieldObj["options"]?.jsonArray ?: emptyList()
-                    val matchingOption = options.firstOrNull { opt ->
-                        val optName = opt.jsonObject["name"]?.jsonPrimitive?.content ?: ""
-                        try {
-                            DeliveryPhase.of(optName) == phase
-                        } catch (_: Exception) { false }
-                    }
-                    if (matchingOption != null) {
-                        val optionId = matchingOption.jsonObject["id"]?.jsonPrimitive?.content ?: continue
-                        setProjectItemFieldValue(projectId, itemId, fieldId, optionId)
-                    }
-                }
-            }
+        val targets = statusTargets(issueJson, column)
+        if (targets.isEmpty()) {
+            throw IllegalStateException("Work item #$id is on no board whose Status field has a '${column.displayName}' option")
+        }
+        for (target in targets) {
+            setProjectItemFieldValue(target.projectId, target.itemId, target.fieldId, target.optionId)
         }
 
         return findById(repo, id) ?: WorkItem(
@@ -231,7 +194,7 @@ class GitHubGraphQLWorkItems(
             title = WorkItemTitle.of(issueJson["title"]?.jsonPrimitive?.content ?: "Issue #$id"),
             body = WorkItemBody.of(issueJson["body"]?.jsonPrimitive?.content ?: ""),
             type = WorkItemType.FEATURE,
-            phase = phase,
+            column = column,
             url = issueJson["url"]?.jsonPrimitive?.content
         )
     }
@@ -307,5 +270,42 @@ class GitHubGraphQLWorkItems(
             put("fieldId", fieldId)
             put("optionId", optionId)
         })
+    }
+}
+
+internal data class StatusTarget(val projectId: String, val itemId: String, val fieldId: String, val optionId: String)
+
+/** The issue's board column, or null when it is on no board or its Status option is not a known column. */
+internal fun statusColumn(issueJson: JsonObject): BoardColumn? {
+    val projectItems = issueJson["projectItems"]?.jsonObject?.get("nodes")?.jsonArray ?: return null
+    for (item in projectItems) {
+        val fieldValues = item.jsonObject["fieldValues"]?.jsonObject?.get("nodes")?.jsonArray ?: continue
+        for (value in fieldValues) {
+            val valueObj = value.jsonObject
+            if (valueObj["field"]?.jsonObject?.get("name")?.jsonPrimitive?.content != "Status") continue
+            val optionName = valueObj["name"]?.jsonPrimitive?.content ?: continue
+            return runCatching { BoardColumn.of(optionName) }.getOrNull()
+        }
+    }
+    return null
+}
+
+/** Each board item of the issue whose Status field has an option for [column]. */
+internal fun statusTargets(issueJson: JsonObject, column: BoardColumn): List<StatusTarget> {
+    val projectItems = issueJson["projectItems"]?.jsonObject?.get("nodes")?.jsonArray ?: return emptyList()
+    return projectItems.mapNotNull { item ->
+        val itemId = item.jsonObject["id"]?.jsonPrimitive?.content ?: return@mapNotNull null
+        val project = item.jsonObject["project"]?.jsonObject ?: return@mapNotNull null
+        val projectId = project["id"]?.jsonPrimitive?.content ?: return@mapNotNull null
+        val fields = project["fields"]?.jsonObject?.get("nodes")?.jsonArray ?: return@mapNotNull null
+        val status = fields.map { it.jsonObject }
+            .firstOrNull { it["name"]?.jsonPrimitive?.content == "Status" } ?: return@mapNotNull null
+        val fieldId = status["id"]?.jsonPrimitive?.content ?: return@mapNotNull null
+        val option = status["options"]?.jsonArray?.map { it.jsonObject }?.firstOrNull { opt ->
+            val name = opt["name"]?.jsonPrimitive?.content ?: ""
+            runCatching { BoardColumn.of(name) }.getOrNull() == column
+        } ?: return@mapNotNull null
+        val optionId = option["id"]?.jsonPrimitive?.content ?: return@mapNotNull null
+        StatusTarget(projectId, itemId, fieldId, optionId)
     }
 }
