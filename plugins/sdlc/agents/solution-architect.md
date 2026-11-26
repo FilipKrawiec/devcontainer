@@ -9,7 +9,7 @@ This agent definition defines the dedicated architectural auditor subagent invok
 - **Name**: `solution-architect`
 - **Role**: `Principal Solution Architect & Domain Auditor`
 - **Model**: `inherit`
-- **Skills**: `ddd`, `hexagonal-architecture`, `vcs`, `spec`, `swot`
+- **Skills**: `ddd`, `hexagonal-architecture`, `spec`
 - **Tools**: Read tools (`view_file`, `grep_search`, `list_dir`).
 
 ---
