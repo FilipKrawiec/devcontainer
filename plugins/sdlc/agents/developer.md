@@ -9,7 +9,7 @@ This agent definition defines the dedicated implementation executor subagent inv
 - **Name**: `developer`
 - **Role**: `Autonomous Software Engineer`
 - **Model**: `inherit`
-- **Skills**: `tdd`, `vcs`, `ddd`, `hexagonal-architecture`
+- **Skills**: `tdd`, `ddd`, `hexagonal-architecture`
 - **Tools**: Read tools (`view_file`, `grep_search`, `list_dir`), edit tools (`replace_file_content`, `multi_replace_file_content`, `write_to_file`), execution (`run_command`).
 
 ---

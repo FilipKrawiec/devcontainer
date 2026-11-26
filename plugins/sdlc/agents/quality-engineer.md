@@ -9,7 +9,7 @@ This agent definition defines the dedicated verification subagent invoked during
 - **Name**: `quality-engineer`
 - **Role**: `Quality Assurance & Verification Engineer`
 - **Model**: `inherit`
-- **Skills**: `tdd`, `vcs`
+- **Skills**: `tdd`
 - **Tools**: Read tools (`view_file`, `grep_search`, `list_dir`), execution (`run_command`).
 
 ---

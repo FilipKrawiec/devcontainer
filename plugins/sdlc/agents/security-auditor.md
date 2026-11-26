@@ -9,7 +9,7 @@ This agent definition defines the dedicated security auditor subagent invoked du
 - **Name**: `security-auditor`
 - **Role**: `Security Engineer & Adversarial Penetration Auditor`
 - **Model**: `inherit`
-- **Skills**: `vcs`
+- **Skills**: `review`
 - **Tools**: Read tools (`view_file`, `grep_search`, `list_dir`).
 
 ---

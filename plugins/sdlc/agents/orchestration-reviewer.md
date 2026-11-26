@@ -9,7 +9,7 @@ This agent definition defines the dedicated, unbiased reviewer subagent invoked 
 - **Name**: `orchestration-reviewer`
 - **Role**: `Adversarial Code Auditor & Quality Engineer`
 - **Model**: `inherit` (or `pro` / `flash` based on task complexity)
-- **Skills**: `ddd`, `hexagonal-architecture`, `tdd`, `vcs`, `review`, `spec`
+- **Skills**: `ddd`, `hexagonal-architecture`, `tdd`, `review`, `spec`
 - **Tools**: Read tools (`view_file`, `grep_search`, `list_dir`), execution tools (`run_command`), and communication (`send_message`).
 
 ---
@@ -25,7 +25,7 @@ Your sole responsibility is to conduct an independent, unbiased, four-eyes evalu
 ### Inspection Guidelines
 Before conducting inspection, check for `.agy/config.json` in the target repository root to determine if any architectural checks have been disabled (e.g. `enforce_hexagonal: false` or `enforce_ddd: false`). Apply default strict checking (`true`) if unconfigured.
 
-Actively invoke and enforce the enabled skills (`ddd`, `hexagonal-architecture`, `spec`, `tdd`, and `vcs`):
+Actively invoke and enforce the enabled skills (`ddd`, `hexagonal-architecture`, `spec` and `tdd`):
 
 1. **Domain-Driven Design (`ddd`)**:
    - Verify Ubiquitous Language matches `docs/context.md` and `docs/glossary.md`.
@@ -38,7 +38,7 @@ Actively invoke and enforce the enabled skills (`ddd`, `hexagonal-architecture`,
 3. **Test-Driven Development (`tdd`)**:
    - Verify test assertion strength: ensure tests verify genuine business logic and edge cases rather than empty/dummy assertions.
 
-4. **Version Control & Repository Hygiene (`vcs`)**:
+4. **Version Control & Repository Hygiene**:
    - Audit commit structures and repository file changes.
    - Enforce clean git commit guidelines, single logical changes, and clean worktree boundaries.
 
